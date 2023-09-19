@@ -188,12 +188,13 @@ class ControlFrame(pqtw.QFrame):
         pl.addWidget(dropdown, 0, 0, 1, 1)
         pl.addWidget(frame, 1, 0, 3, 1)
 
-    def add_trajectory(self, fname, color):
-        try:
-            plot_id = self.visualizer.add_plot(fname, color)
-        except:
+    def add_trajectory(self, subjects, color, filter_types):
+        # try:
+        print("filtes", filter_types)
+        plot_id = self.visualizer.add_plot(subjects, color, filter_types)
+        # except:
             # TODO -- proper exception and warning
-            pass
+            # pass
         item = pqtw.QListWidgetItem("Trajectory")
         # bgc = pqtg.QColor(*color)
         # bgc.setRgbF(*color)
@@ -204,6 +205,7 @@ class ControlFrame(pqtw.QFrame):
         # item.setFocusPolicy(pqtc.Qt.FocusPolicy.NoFocus)
         self.patch_list.addItem(item)
 
+    # TODO this is busted for now
     def clicked_item(self, item):
         def color_edit():
             color_d = pqtw.QColorDialog(self)
@@ -221,6 +223,7 @@ class ControlFrame(pqtw.QFrame):
             self.edit_trajectory(item, (*self.change_color, alpha))
             popup.close()
 
+        # TODO variable
         alpha = 0.4
         popup = pqtw.QDialog(self)
         self.change_color = item.data(1)["color"]
@@ -278,34 +281,113 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         super(InsertTrajectoryFrame, self).__init__(parent)
         self.popup = parent
 
-        self.fname = "Please select path"
+        self.fname = self.popup.parent().visualizer.base_path
         self.fname_label = pqtw.QLabel(self.fname)
         # TODO cycle this
         self.color = (0.7, 0., 0.)
-        self.alpha = 0.4
+        # TODO variabel
+        self.alpha = 0.2
 
         self.g_layout = pqtw.QGridLayout()
         self.setLayout(self.g_layout)
 
         self.buttons = {}
-        self.buttons["get"] = pqtw.QPushButton("Get path...", self)
+        # self.buttons["get"] = pqtw.QPushButton("Get path...", self)
         self.buttons["add"] = pqtw.QPushButton("Add trajectory", self)
-        self.buttons["add"].setEnabled(False)
+        # self.buttons["add"].setEnabled(False)
         self.buttons["cancel"] = pqtw.QPushButton("Cancel", self)
         self.buttons["color"] = pqtw.QPushButton("Color", self)
         hex = '#%02x%02x%02x' % (int(self.color[0]*255),
                                  int(self.color[1]*255),
                                  int(self.color[2]*255))
         self.buttons["color"].setStyleSheet(f"background-color:{hex};")
-        self.buttons["get"].clicked.connect(self.open_browser)
+        # self.buttons["get"].clicked.connect(self.open_browser)
         self.buttons["add"].clicked.connect(self.send_patch)
         self.buttons["cancel"].clicked.connect(self.popup.close)
         self.buttons["color"].clicked.connect(self.get_color)
         self.g_layout.addWidget(self.fname_label, 0, 0, 1, 2)
-        self.g_layout.addWidget(self.buttons["get"], 1, 0, 1, 2)
+        # self.g_layout.addWidget(self.buttons["get"], 1, 0, 1, 2)
         self.g_layout.addWidget(self.buttons["color"], 2, 0, 1, 2)
         self.g_layout.addWidget(self.buttons["add"], 3, 0, 1, 1)
         self.g_layout.addWidget(self.buttons["cancel"], 3, 1, 1, 1)
+
+        selection_groupBox = pqtw.QGroupBox("Select subjects")
+        s_radio1 = pqtw.QRadioButton("All")
+        s_radio2 = pqtw.QRadioButton("Select")
+        s_radio3 = pqtw.QRadioButton("Custom indices")
+        sgl = pqtw.QGridLayout(selection_groupBox)
+        subject_drop = pqtw.QComboBox(selection_groupBox)
+        for subject in self.popup.parent().visualizer.subjects:
+            subject_drop.addItem(subject)
+        subject_text = pqtw.QLineEdit("eg. 1, 2, 8, 10-13")
+        self.subject_text = subject_text
+        self.subject_drop = subject_drop
+        self.selection = [s_radio1, s_radio2, s_radio3]
+
+        subject_drop.setEnabled(False)
+        subject_text.setEnabled(False)
+
+        def disable_fields(r):
+            if r == 1:
+                subject_drop.setEnabled(False)
+                subject_text.setEnabled(False)
+            if r == 2:
+                subject_drop.setEnabled(True)
+                subject_text.setEnabled(False)
+            if r == 3:
+                subject_drop.setEnabled(False)
+                subject_text.setEnabled(True)
+
+        s_radio1.clicked.connect(lambda: disable_fields(1))
+        s_radio2.clicked.connect(lambda: disable_fields(2))
+        s_radio3.clicked.connect(lambda: disable_fields(3))
+        s_radio1.setChecked(True)
+        sgl.addWidget(s_radio1, 0, 0, 1, 4)
+        sgl.addWidget(s_radio2, 1, 0, 1, 1)
+        sgl.addWidget(subject_drop, 1, 1, 1, 3)
+        sgl.addWidget(s_radio3, 2, 0, 1, 1)
+        sgl.addWidget(subject_text, 2, 1, 1, 3)
+        selection_groupBox.setLayout(sgl)
+        self.g_layout.addWidget(selection_groupBox, 12, 0, 2, 2)
+
+        c_groupBox = pqtw.QGroupBox("Filter congruency")
+        c_radio1 = pqtw.QRadioButton("No filter")
+        c_radio2 = pqtw.QRadioButton("Congruent")
+        c_radio3 = pqtw.QRadioButton("Incongruent")
+        cgl = pqtw.QHBoxLayout(c_groupBox)
+        c_radio1.setChecked(True)
+        cgl.addWidget(c_radio1)
+        cgl.addWidget(c_radio2)
+        cgl.addWidget(c_radio3)
+        c_groupBox.setLayout(cgl)
+        self.g_layout.addWidget(c_groupBox, 4, 0, 2, 2)
+        self.c_filters = [c_radio1, c_radio2, c_radio3]
+
+        c2_groupBox = pqtw.QGroupBox("Filter 2nd order congruency")
+        c2_radio1 = pqtw.QRadioButton("No filter")
+        c2_radio2 = pqtw.QRadioButton("Congruent")
+        c2_radio3 = pqtw.QRadioButton("Incongruent")
+        cgl2 = pqtw.QHBoxLayout(c2_groupBox)
+        c2_radio1.setChecked(True)
+        cgl2.addWidget(c2_radio1)
+        cgl2.addWidget(c2_radio2)
+        cgl2.addWidget(c2_radio3)
+        c2_groupBox.setLayout(cgl2)
+        self.g_layout.addWidget(c2_groupBox, 6, 0, 2, 2)
+        self.c2_filters = [c2_radio1, c2_radio2, c2_radio3]
+
+        l_groupBox = pqtw.QGroupBox("Filter stimulus location")
+        l_radio1 = pqtw.QRadioButton("No filter")
+        l_radio2 = pqtw.QRadioButton("Left")
+        l_radio3 = pqtw.QRadioButton("Right")
+        lgl = pqtw.QHBoxLayout(l_groupBox)
+        l_radio1.setChecked(True)
+        lgl.addWidget(l_radio1)
+        lgl.addWidget(l_radio2)
+        lgl.addWidget(l_radio3)
+        l_groupBox.setLayout(lgl)
+        self.g_layout.addWidget(l_groupBox, 8, 0, 2, 2)
+        self.l_filters = [l_radio1, l_radio2, l_radio3]
 
     def get_color(self):
         def set(color):
@@ -317,15 +399,55 @@ class InsertTrajectoryFrame(pqtw.QFrame):
                                  int(self.color[2]*255))
         self.buttons["color"].setStyleSheet(f"background-color:{hex};")
 
-    def open_browser(self):
-        self.fname = pqtw.QFileDialog().getOpenFileName(
-            self, ("Results path"), "../data", ("trial_results (trial_results.csv)"))[0]
-        self.buttons["add"].setEnabled(True)
-        self.fname_label.setText(self.fname)
+    # def open_browser(self):
+        # self.fname = pqtw.QFileDialog().getOpenFileName(
+            # self, ("Results path"), "../data", ("trial_results (trial_results.csv)"))[0]
+        # self.buttons["add"].setEnabled(True)
+        # self.fname_label.setText(self.fname)
 
     def send_patch(self):
         self.color = (*self.color, self.alpha)
-        self.popup.parent().add_trajectory(self.fname, self.color)
+
+        filter_types = []
+        i = 0
+        for fs in [self.c_filters, self.c2_filters, self.l_filters]:
+            for f in fs:
+                if f.isChecked():
+                    if i % 3:
+                        filter_types.append(i)
+                i += 1
+
+        def parse_custom_int(text):
+            sub_list = self.popup.parent().visualizer.subjects
+            items = text.split(",")
+            for i in len(range(items)):
+                items[i] = ''.join(e for e in items[i] if e in "012345689-")
+            subjects = []
+            for item in items:
+                if "-" in item:
+                    rng = item.split("-")
+                    mn = int(rng[0]) - 1
+                    mx = int(rng[-1])
+                    subjects += sub_list[mn:mx]
+                else:
+                    subjects.append(sub_list[int(item) - 1])
+            return subjects
+
+        subjects = []
+        if self.selection[2].isChecked():
+            try:
+                subjects = parse_custom_int(self.subject_text.text())
+            except ValueError:
+                # TODO make a dialogue, maybe handle differently
+                print("parse_custom_int failed, using ALL subjects instead")
+                subjects = self.popup.parent().visualizer.subjects
+        elif self.selection[1].isChecked():
+            subjects = [self.subject_drop.currentText()]
+        else:
+            subjects = self.popup.parent().visualizer.subjects
+
+        print(subjects)
+        self.popup.parent().add_trajectory(subjects, self.color, filter_types)
         self.popup.close()
 
 
