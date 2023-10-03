@@ -188,10 +188,13 @@ class ControlFrame(pqtw.QFrame):
         pl.addWidget(dropdown, 0, 0, 1, 1)
         pl.addWidget(frame, 1, 0, 3, 1)
 
-    def add_trajectory(self, subjects, color, filter_types):
+    def add_trajectory(self, subjects, color, filter_types, avg_color, avg_bool, transform):
         # try:
         print("filtes", filter_types)
-        plot_id = self.visualizer.add_plot(subjects, color, filter_types)
+        plot_id = self.visualizer.add_plot(subjects, color, 
+                                           filter_types, 
+                                           avg_color, avg_bool,
+                                           transform)
         # except:
             # TODO -- proper exception and warning
             # pass
@@ -275,7 +278,6 @@ class ControlFrame(pqtw.QFrame):
         self.patch_list.addItem(item)
 
 
-
 class InsertTrajectoryFrame(pqtw.QFrame):
     def __init__(self, parent):
         super(InsertTrajectoryFrame, self).__init__(parent)
@@ -285,11 +287,25 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         self.fname_label = pqtw.QLabel(self.fname)
         # TODO cycle this
         self.color = (0.7, 0., 0.)
+        self.avg_color = (1., 1., 1.)
         # TODO variabel
         self.alpha = 0.2
+        self.avg_alpha = 1.
 
-        self.g_layout = pqtw.QGridLayout()
-        self.setLayout(self.g_layout)
+        # self.g_layout = pqtw.QGridLayout()
+        self.h_layout = pqtw.QHBoxLayout()
+        # self.setLayout(self.g_layout)
+        self.setLayout(self.h_layout)
+
+        self.frame1 = pqtw.QFrame(self)
+        self.frame1.setLayout(pqtw.QVBoxLayout())
+        self.h_layout.addWidget(self.frame1)
+        self.frame2 = pqtw.QFrame(self)
+        self.frame2.setLayout(pqtw.QVBoxLayout())
+        self.h_layout.addWidget(self.frame2)
+        self.frame3 = pqtw.QFrame(self)
+        self.frame3.setLayout(pqtw.QVBoxLayout())
+        self.h_layout.addWidget(self.frame3)
 
         self.buttons = {}
         # self.buttons["get"] = pqtw.QPushButton("Get path...", self)
@@ -305,11 +321,11 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         self.buttons["add"].clicked.connect(self.send_patch)
         self.buttons["cancel"].clicked.connect(self.popup.close)
         self.buttons["color"].clicked.connect(self.get_color)
-        self.g_layout.addWidget(self.fname_label, 0, 0, 1, 2)
+        # self.g_layout.addWidget(self.fname_label, 0, 0, 1, 2)
         # self.g_layout.addWidget(self.buttons["get"], 1, 0, 1, 2)
-        self.g_layout.addWidget(self.buttons["color"], 2, 0, 1, 2)
-        self.g_layout.addWidget(self.buttons["add"], 3, 0, 1, 1)
-        self.g_layout.addWidget(self.buttons["cancel"], 3, 1, 1, 1)
+        # self.g_layout.addWidget(self.buttons["color"], 2, 0, 1, 2)
+        # self.g_layout.addWidget(self.buttons["add"], 15, 0, 1, 1)
+        # self.g_layout.addWidget(self.buttons["cancel"], 3, 1, 1, 1)
 
         selection_groupBox = pqtw.QGroupBox("Select subjects")
         s_radio1 = pqtw.QRadioButton("All")
@@ -348,7 +364,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         sgl.addWidget(s_radio3, 2, 0, 1, 1)
         sgl.addWidget(subject_text, 2, 1, 1, 3)
         selection_groupBox.setLayout(sgl)
-        self.g_layout.addWidget(selection_groupBox, 12, 0, 2, 2)
+        # self.g_layout.addWidget(selection_groupBox, 12, 0, 2, 2)
 
         c_groupBox = pqtw.QGroupBox("Filter congruency")
         c_radio1 = pqtw.QRadioButton("No filter")
@@ -360,7 +376,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         cgl.addWidget(c_radio2)
         cgl.addWidget(c_radio3)
         c_groupBox.setLayout(cgl)
-        self.g_layout.addWidget(c_groupBox, 4, 0, 2, 2)
+        # self.g_layout.addWidget(c_groupBox, 4, 0, 2, 2)
         self.c_filters = [c_radio1, c_radio2, c_radio3]
 
         c2_groupBox = pqtw.QGroupBox("Filter 2nd order congruency")
@@ -373,7 +389,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         cgl2.addWidget(c2_radio2)
         cgl2.addWidget(c2_radio3)
         c2_groupBox.setLayout(cgl2)
-        self.g_layout.addWidget(c2_groupBox, 6, 0, 2, 2)
+        # self.g_layout.addWidget(c2_groupBox, 6, 0, 2, 2)
         self.c2_filters = [c2_radio1, c2_radio2, c2_radio3]
 
         l_groupBox = pqtw.QGroupBox("Filter stimulus location")
@@ -386,18 +402,54 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         lgl.addWidget(l_radio2)
         lgl.addWidget(l_radio3)
         l_groupBox.setLayout(lgl)
-        self.g_layout.addWidget(l_groupBox, 8, 0, 2, 2)
         self.l_filters = [l_radio1, l_radio2, l_radio3]
+        # self.g_layout.addWidget(l_groupBox, 8, 0, 2, 2)
 
-    def get_color(self):
-        def set(color):
-            self.color = color
+        self.buttons["avg_color"] = pqtw.QPushButton("Color for Average", self)
+        hex = '#%02x%02x%02x' % (int(self.avg_color[0]*255),
+                                 int(self.avg_color[1]*255),
+                                 int(self.avg_color[2]*255))
+        self.buttons["avg_color"].setStyleSheet(f"background-color:{hex};")
+        self.buttons["avg_color"].clicked.connect(lambda: self.get_color(True))
+        self.avg_checkbox = pqtw.QCheckBox("Plot mean trajectory?", self)
+
+        t_groupBox = pqtw.QGroupBox("Transformation")
+        t_radio1 = pqtw.QRadioButton("No transform")
+        t_radio2 = pqtw.QRadioButton("Left to right")
+        t_radio3 = pqtw.QRadioButton("Right to left")
+        tgl = pqtw.QHBoxLayout(t_groupBox)
+        t_radio1.setChecked(True)
+        tgl.addWidget(t_radio1)
+        tgl.addWidget(t_radio2)
+        tgl.addWidget(t_radio3)
+        t_groupBox.setLayout(tgl)
+        self.t_filters = [t_radio1, t_radio2, t_radio3]
+
+        self.frame1.layout().addWidget(self.fname_label)
+        self.frame1.layout().addWidget(selection_groupBox)
+        self.frame1.layout().addWidget(self.buttons["color"])
+        self.frame1.layout().addWidget(self.buttons["add"])
+        self.frame2.layout().addWidget(c_groupBox)
+        self.frame2.layout().addWidget(c2_groupBox)
+        self.frame2.layout().addWidget(l_groupBox)
+        self.frame2.layout().addWidget(self.buttons["cancel"])
+
+        self.frame3.layout().addWidget(self.avg_checkbox)
+        self.frame3.layout().addWidget(self.buttons["avg_color"])
+        self.frame3.layout().addWidget(t_groupBox)
+
+    def get_color(self, average=False):
         color_d = pqtw.QColorDialog(self)
-        self.color = color_d.getColor().getRgbF()[:-1]
-        hex = '#%02x%02x%02x' % (int(self.color[0]*255),
-                                 int(self.color[1]*255),
-                                 int(self.color[2]*255))
-        self.buttons["color"].setStyleSheet(f"background-color:{hex};")
+        c = color_d.getColor().getRgbF()[:-1]
+        hex = '#%02x%02x%02x' % (int(c[0]*255),
+                                 int(c[1]*255),
+                                 int(c[2]*255))
+        if not average:
+            self.color = c 
+            self.buttons["color"].setStyleSheet(f"background-color:{hex};")
+        else:
+            self.avg_color = c
+            self.buttons["avg_color"].setStyleSheet(f"background-color:{hex};")
 
     # def open_browser(self):
         # self.fname = pqtw.QFileDialog().getOpenFileName(
@@ -407,6 +459,8 @@ class InsertTrajectoryFrame(pqtw.QFrame):
 
     def send_patch(self):
         self.color = (*self.color, self.alpha)
+        self.avg_color = (*self.avg_color, self.avg_alpha)
+        avg_bool = self.avg_checkbox.checkState()
 
         filter_types = []
         i = 0
@@ -420,7 +474,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         def parse_custom_int(text):
             sub_list = self.popup.parent().visualizer.subjects
             items = text.split(",")
-            for i in len(range(items)):
+            for i in range(len(items)):
                 items[i] = ''.join(e for e in items[i] if e in "012345689-")
             subjects = []
             for item in items:
@@ -446,8 +500,17 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         else:
             subjects = self.popup.parent().visualizer.subjects
 
+        i = 0
+        for t in self.t_filters:
+            if t.isChecked():
+                transform = i 
+            i += 1
+
         print(subjects)
-        self.popup.parent().add_trajectory(subjects, self.color, filter_types)
+        self.popup.parent().add_trajectory(subjects, self.color, 
+                                           filter_types, 
+                                           self.avg_color, avg_bool,
+                                           transform)
         self.popup.close()
 
 
@@ -502,6 +565,7 @@ class InsertTargetFrame(pqtw.QFrame):
         self.popup.parent().add_target(self.label.text(), x, y, z, self.color)
         self.popup.close()
 
+
 class VisualFrame(pqtw.QFrame):
     def __init__(self, parent, visual, *args, **kwargs):
         super(VisualFrame, self).__init__(parent)
@@ -552,6 +616,7 @@ class VisualFrame(pqtw.QFrame):
             self.box.addWidget(self.visuals[self.index].canvas)
         else:
             raise NameError("Only vispy and matplotlib currently supported")
+
 
 class GUI:
     def __init__(self, visualizer):

@@ -2,8 +2,8 @@ import numpy as np
 from vispy import scene
 from vispy.scene import Line, Sphere
 from vispy.visuals.transforms import STTransform
-from vispy.visuals.filters import Alpha, WireframeFilter
-
+from vispy.visuals.filters import WireframeFilter
+# from vispy.color import Colormap
 # import core
 # import numpy as np
 
@@ -141,6 +141,7 @@ class Viz(BaseVispy):
         super().__init__(widget, axes=False)
         self.plots = {} 
         self.targets = {}
+        # self.volume_test()
         # self.plots = core.get_all()
         # for line in self.plots:
             # line.parent = self.view.scene
@@ -159,6 +160,36 @@ class Viz(BaseVispy):
         # # points = np.array([[[1,1,1], [2,2,2], [np.nan, np.nan,np.nan], [3,3,3], [4,4,4]]])
         # line = Line(points, color=[0.7, 0.2, 0, 0.4], width=4.0, parent=self.view.scene)
 
+    # def volume_test(self):
+        # self.samples = 100
+
+        # def vol(x, z):
+            # if (z < 0.5 + (0.1**2 - (x - 0.5)**2)**0.5 and z > 0.5 - (0.1**2 - (x - 0.5)**2)**0.5):
+                # return (1 / (np.linalg.norm([0.5,0.5]) - np.linalg.norm([x-0.5, z-0.5])))
+            # else:
+                # return 0.
+
+        # X, Y, Z = (np.linspace(0.4, 0.6, self.samples),
+                   # np.linspace(0.2, 0.6, self.samples),
+                   # np.linspace(0.4, 0.6, self.samples)
+                   # )
+
+        # # print(X, Y, Z)
+        # U = []
+        # for z in Z:
+            # for y in Y:
+                # for x in X:
+                    # f = vol(x, z)
+                    # U.append(f)
+
+
+        # colors = Colormap([[0,0,0,0.0],[1,1,1,0.1]], interpolation="linear")
+        # vol1 = np.array(U).reshape(self.samples, self.samples, self.samples)
+
+        # self.volume1 = scene.visuals.Volume(vol1, parent=self.view.scene, 
+                                            # cmap=colors, method = 'translucent',
+                                            # )
+
     def add_plot(self, plot_id, points, color, width=4.0, order=1):
         traj = Line(points, color=color, width=width)
         traj.order = order
@@ -170,14 +201,14 @@ class Viz(BaseVispy):
         else:
             self.plots[plot_id] = [traj]
         traj.parent = self.view.scene
+        # self.recenter_camera()
 
     def add_confidence_ribbon(self, plot_id, points, color):
         points = np.array(list(zip(points[0], points[1]))).reshape(int(points[0].size*2/3), 3)
         # faces = np.array([(i, i+1, i+3, i+2) for i in range(0, len(points)-3, 2)])
         faces = np.array([(i, i+1, i+2) for i in range(0, len(points)-2)])
-        # TODO colour variable
-        v_colors = np.ones((len(points), 4))
-        v_colors[:, 3] = 0.4
+        v_colors = np.ones((len(points), 4)) * color
+        v_colors[:, 3] *= 0.4
         ribbon = scene.visuals.Mesh(points, 
                                     faces, 
                                     vertex_colors=v_colors,
@@ -189,11 +220,11 @@ class Viz(BaseVispy):
         else:
             self.plots[plot_id] = [ribbon]
         ribbon.parent = self.view.scene
-        self.recenter_camera()
 
     def remove_plot(self, plot_id):
         for plot in self.plots[plot_id]:
             plot.parent = None
+        del self.plots[plot_id]
 
     def set_plots(self, lines):
         # lines.parent = self.view.scene
