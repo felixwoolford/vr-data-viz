@@ -1,20 +1,62 @@
 # TODO -- some thoroughout code, also:
 # check z-averaging
+# plot average only with/without CI
 # alpha sliders
+# thickness slider
+# better positioning for popups
 # export data
 # patch editor
+# target insertion
 # figsave
 # animator
+# line smoothing
 # directory structure flexibility
 # shading/shadows on background
 # ordered transparency
+# glow effect
 
 import numpy as np
 import scipy.stats as st
+from scipy.interpolate import CubicSpline
 
 from visuals import Viz
 import data_reader
 
+
+def cubic_resample(points, n_samples):
+    cs = CubicSpline(np.linspace(0, n_samples, len(points)), points)
+    resampled_points = cs(np.arange(n_samples))
+    # return sampled_points.reshape((1, n_samples, 3))
+    return resampled_points
+
+
+def average_trajectories(points, n_samples=200, resample=False):
+    all_i = [0]
+    for i in range(len(points)):
+        if np.all(np.isnan(points[i, :])):
+            all_i += [i, i+1]
+    assert all_i[-1] == len(points)
+
+    points_all = np.empty((0, n_samples, 3))
+    for i in range(0, len(all_i)-1, 2):
+        if resample:
+            points_all = np.concatenate((points_all,
+                                         cubic_resample(points[all_i[i]:all_i[i+1]],
+                                                        n_samples)).reshape((1, n_samples, 3)),
+                                        axis=0)
+        else:
+            points_all = np.concatenate((points_all,
+                                         points[all_i[i]:all_i[i+1]].reshape((1, n_samples, 3))),
+                                        axis=0)
+
+    mean_points = np.mean(points_all, axis=0)
+    # TODO confidence variable??
+    # TODO TODO check with someone about scale, shape?
+    confidence = st.t.interval(0.95,
+                               len(points_all)-1,
+                               loc=mean_points,
+                               scale=st.sem(points_all))
+    return mean_points, confidence
 
 def average_trajectories_with_resampling(points):
     def resample(points, n_samples):
@@ -54,7 +96,7 @@ def average_trajectories_with_resampling(points):
     return mean_points, confidence
 
 
-def get_trajs(csv, fname, filter=None, transform=None):
+def get_trajs(csv, fname, filter=None, transform=None, resample=True):
     # TODO rework for preprocessed I think??
     path = "/".join(fname.split("/")[:-1]) + "/"
     points_all = np.empty((0, 3))
@@ -72,6 +114,8 @@ def get_trajs(csv, fname, filter=None, transform=None):
         if filter is None or filter[i]:
             points = data_reader.get_traj_data(csv, i, path)
             points = np.array(points).T
+            if resample:
+                points = cubic_resample(points, 200)
             if transform_filter is not None and transform_filter[i]:
                 points[:, 0] *= -1
 
@@ -199,12 +243,16 @@ class Visualizer():
         self._viz.add_plot(self._plot_id_counter, lines_all, color, order=3)
         # TODO this is much to slow for huge collections -- progress bar?? threading??
         if average:
-            average_points, confidence = average_trajectories_with_resampling(lines_all)
+            # average_points, confidence = average_trajectories_with_resampling(lines_all)
+            average_points, confidence = average_trajectories(lines_all)
             # TODO how to do colors?
             self._viz.add_plot(self._plot_id_counter, average_points, avg_color, width=14.)
             for cline in confidence:
                 self._viz.add_plot(self._plot_id_counter, cline, avg_color, width=7.)
             self._viz.add_confidence_ribbon(self._plot_id_counter, confidence, color=avg_color)
+
+        # self._viz.add_plot(self._plot_id_counter, lines_all, color, order=3,
+                           # average_points=average_points)
 
         self._viz.recenter_camera()
         # TODO store data for export

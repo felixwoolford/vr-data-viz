@@ -19,8 +19,9 @@ class BaseVispy:
             self.init_axes(**kwargs)
         else:
             self.view = self.canvas.central_widget.add_view()
-            self.view.camera = "arcball"
+            # self.view.camera = "arcball"
             self.view.camera = "turntable"
+            # self.view.camera = "fly"
 
         if aspect is not None:
             self.view.camera.aspect = aspect
@@ -190,7 +191,63 @@ class Viz(BaseVispy):
                                             # cmap=colors, method = 'translucent',
                                             # )
 
-    def add_plot(self, plot_id, points, color, width=4.0, order=1):
+    # def highlight():
+        # # TODO remove this cool glowy stuff or fix it
+        # def find_nearest_point_heuristically(p, i):
+            # max_j = len(average_points) - 1
+            # d = np.linalg.norm(p - average_points[i])
+            # h_range = 16
+            # max_iter = 50
+            # while h_range > 1:
+                # max_iter -= 1
+                # j = min(max_j, i + h_range)
+                # k = max(0, i - h_range)
+                # d2j = np.linalg.norm(p - average_points[j])
+                # d2k = np.linalg.norm(p - average_points[k])
+                # if d2j < d2k:
+                    # d2 = d2j
+                # else:
+                    # d2 = d2k
+                    # j = k
+
+                # if d2 < d:
+                    # d = d2
+                    # h_range = 16
+                    # i = j
+                # else:
+                    # h_range = h_range // 2
+            # return d
+        # def find_d_brutal(p):
+            # d = np.linalg.norm(p - average_points[0])
+            # for i in range(1, len(average_points)):
+                # d2 = np.linalg.norm(p - average_points[i])
+                # if d2 < d:
+                    # d = d2
+            # return d
+
+        # color = np.ones((len(points), 4)) * color
+        # i = 0
+        # j = 0
+        # # y = np.array([1, 0, 0, 1])
+        # y = np.clip(color[0] ** (1/3) + np.array([0.8, 0.8, 0, 1]) ** 3, 0, 1)
+        # y[3] = 1
+        # mx = 0.01
+        # if average_points is not None:
+            # for point in points:
+                # if np.all(np.isnan(point)):
+                    # i = 0
+                # else:
+                    # # print(i, len(average_points))
+                    # # ind = np.clip(int(i / (86 / 225)), 0, 225)
+                    # # dist = np.linalg.norm(point - average_points[i])
+                    # dist = find_nearest_point_heuristically(point, i)
+                    # # dist = find_d_brutal(point)
+                    # color[j] = ((y * np.clip((mx - dist) / mx, 0, 1))**2
+                                # + (color[j] * np.clip(dist / mx, 0, 1))**2)**(1/2)
+                    # i += 1
+                # j += 1
+
+    def add_plot(self, plot_id, points, color, width=2.0, order=1):
         traj = Line(points, color=color, width=width)
         traj.order = order
         # traj.set_gl_state("translucent", depth_test=False)
