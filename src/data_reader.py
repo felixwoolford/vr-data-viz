@@ -6,14 +6,37 @@ import pandas as pd
 # results_fname = p_path + "trial_results.csv"
 
 
-def get_traj_data(results_csv, trial_id, path):
-    traj_field_name = "controllertracker_movement_location_0"
-    traj_fname = results_csv[traj_field_name][trial_id]
+def get_traj_filenames(path):
+    # Using practice of applying Path() at time of use
+    return [path+fname for fname in os.listdir(Path(path))]
+
+
+def get_processed_data_dir(subject, path, keyword="fda_x"):
+    pp_data_path = f"{path}/S001/{subject}/"
+    valid_sets = []
+    for s in os.listdir(Path(pp_data_path)):
+        if os.path.isdir(Path(pp_data_path+s)):
+            if keyword in s:
+                valid_sets.append(s)
+    if not len(valid_sets):
+        print(f"no {keyword} processed data for {subject}") 
+        return None
+    else:
+        if len(valid_sets) > 1:
+            print(f"too many {keyword} processed data for {subject}") 
+        return valid_sets[0]
+
+
+def get_traj_data(traj_fname):
+    # traj_field_name = "controllertracker_movement_location_0"
+    # traj_fs = os.listdir(Path(path))
+    # traj_fname = traj_fs[trial_id]
+    # traj_fname = results_csv[traj_field_name][trial_id]
 
     # TODO rework for preprocessed I think??
     # filepath in data is incorrect and needs modifying
-    traj_fname = "/".join(traj_fname.split("/")[-2:])
-    traj_fname = path + traj_fname
+    # traj_fname = "/".join(traj_fname.split("/")[-2:])
+    # traj_fname = path + traj_fname
     # print("filtered", traj_fname)
 
     traj_f = Path(traj_fname).open()
@@ -34,8 +57,20 @@ def get_results(results_fname):
     return pd.read_csv(results_f, delimiter=",")
 
 
-def get_subjects(base_path):
-    return sorted([s for s in os.listdir(Path(base_path)) if os.path.isdir(base_path+s)])
+def get_subjects(base_path, all=False):
+    if all:
+        # TODO make this a dict with the traj location
+        return sorted([s for s in os.listdir(Path(base_path)) 
+                       if os.path.isdir(Path(base_path+s))])
+    else:
+        subjects = {}
+        for s in os.listdir(Path(base_path)):
+            path = base_path+s
+            if os.path.isdir(Path(path)):
+                pp_data_dir = get_processed_data_dir(s, path)
+                if pp_data_dir is not None:
+                    subjects[s] = f"{base_path}{s}/S001/{s}/{pp_data_dir}/"
+        return subjects
 
 
 if __name__ == "__main__":

@@ -333,7 +333,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         s_radio3 = pqtw.QRadioButton("Custom indices")
         sgl = pqtw.QGridLayout(selection_groupBox)
         subject_drop = pqtw.QComboBox(selection_groupBox)
-        for subject in self.popup.parent().visualizer.subjects:
+        for subject in self.popup.parent().visualizer.subjects.keys():
             subject_drop.addItem(subject)
         subject_text = pqtw.QLineEdit("eg. 1, 2, 8, 10-13")
         self.subject_text = subject_text

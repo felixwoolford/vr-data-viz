@@ -264,6 +264,7 @@ class Viz(BaseVispy):
         points = np.array(list(zip(points[0], points[1]))).reshape(int(points[0].size*2/3), 3)
         # faces = np.array([(i, i+1, i+3, i+2) for i in range(0, len(points)-3, 2)])
         faces = np.array([(i, i+1, i+2) for i in range(0, len(points)-2)])
+        # TODO inexplicable error occured here where color appeared to be 5 values...
         v_colors = np.ones((len(points), 4)) * color
         v_colors[:, 3] *= 0.4
         ribbon = scene.visuals.Mesh(points, 

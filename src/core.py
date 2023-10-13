@@ -30,16 +30,24 @@ def cubic_resample(points, n_samples):
     return resampled_points
 
 
-def average_trajectories(points, n_samples=200, resample=False):
+def average_trajectories(points, resample=0):
     all_i = [0]
     for i in range(len(points)):
         if np.all(np.isnan(points[i, :])):
             all_i += [i, i+1]
     assert all_i[-1] == len(points)
+    n_samples = all_i[1]
+    for i in range(0, len(all_i)-1, 2):
+        try:
+            assert all_i[i+1] - all_i[i] == n_samples 
+        except AssertionError:
+            print("Not all trajectories are same length. Try using resample.")
+            return
 
     points_all = np.empty((0, n_samples, 3))
     for i in range(0, len(all_i)-1, 2):
         if resample:
+            n_samples = resample
             points_all = np.concatenate((points_all,
                                          cubic_resample(points[all_i[i]:all_i[i+1]],
                                                         n_samples)).reshape((1, n_samples, 3)),
@@ -96,9 +104,9 @@ def average_trajectories_with_resampling(points):
     return mean_points, confidence
 
 
-def get_trajs(csv, fname, filter=None, transform=None, resample=True):
+def get_trajs(csv, path, filter=None, transform=None, resample=0):
     # TODO rework for preprocessed I think??
-    path = "/".join(fname.split("/")[:-1]) + "/"
+    # path = "/".join(fname.split("/")[:-1]) + "/"
     points_all = np.empty((0, 3))
 
     # TODO logic???
@@ -109,13 +117,15 @@ def get_trajs(csv, fname, filter=None, transform=None, resample=True):
     else:
         transform_filter = None
 
-    # TODO how to deal with first 16?
+    traj_fns = data_reader.get_traj_filenames(path)
+    # TODO how to deal with first 16? -- default block 1 filer?
     for i in range(16, len(csv["trial_num"])):
         if filter is None or filter[i]:
-            points = data_reader.get_traj_data(csv, i, path)
+            points = data_reader.get_traj_data(traj_fns[i])
             points = np.array(points).T
+            # TODO resampling is a vanity thing now, resample = n_samples, 0 means don't
             if resample:
-                points = cubic_resample(points, 200)
+                points = cubic_resample(points, resample) 
             if transform_filter is not None and transform_filter[i]:
                 points[:, 0] *= -1
 
@@ -137,6 +147,11 @@ def select_by_location(results, left=True):
     location = np.array(results[field_name])
     mask = location == 1 if left else location == 2
     return mask
+
+
+# TODO
+def select_by_block():
+    pass
 
 
 def get_transform_filter(results, left=True):
@@ -229,12 +244,12 @@ class Visualizer():
             results = data_reader.get_results(fname)
             filter = self.get_filters(results, filter_types) if filter_types else None
 
-            lines = get_trajs(results, fname, filter, transform)
+            lines = get_trajs(results, self.subjects[subject], filter, transform)
 
             # TODO this is the mean transform, put it in the right place
-            mask = np.invert(np.isnan(lines[:, 2]))
-            meanz = np.median(lines[:, 2][mask])
-            lines[:, 2] -= meanz * mask
+            # mask = np.invert(np.isnan(lines[:, 2]))
+            # meanz = np.median(lines[:, 2][mask])
+            # lines[:, 2] -= meanz * mask
 
             lines_all = np.concatenate((lines_all,
                                         lines))
@@ -243,7 +258,6 @@ class Visualizer():
         self._viz.add_plot(self._plot_id_counter, lines_all, color, order=3)
         # TODO this is much to slow for huge collections -- progress bar?? threading??
         if average:
-            # average_points, confidence = average_trajectories_with_resampling(lines_all)
             average_points, confidence = average_trajectories(lines_all)
             # TODO how to do colors?
             self._viz.add_plot(self._plot_id_counter, average_points, avg_color, width=14.)
