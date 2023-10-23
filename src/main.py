@@ -1,3 +1,6 @@
+# TODO -- presets in second colomn of addpatch
+# -- second colour
+# 
 import gui
 # import visuals
 import core

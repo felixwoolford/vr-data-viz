@@ -12,19 +12,23 @@ def get_traj_filenames(path):
 
 
 def get_processed_data_dir(subject, path, keyword="fda_x"):
-    pp_data_path = f"{path}/S001/{subject}/"
-    valid_sets = []
-    for s in os.listdir(Path(pp_data_path)):
-        if os.path.isdir(Path(pp_data_path+s)):
-            if keyword in s:
-                valid_sets.append(s)
-    if not len(valid_sets):
-        print(f"no {keyword} processed data for {subject}") 
+    try:
+        pp_data_path = f"{path}/S001/{subject}/"
+        valid_sets = []
+        for s in os.listdir(Path(pp_data_path)):
+            if os.path.isdir(Path(pp_data_path+s)):
+                if keyword in s:
+                    valid_sets.append(s)
+        if not len(valid_sets):
+            print(f"no {keyword} processed data for {subject}") 
+            return None
+        else:
+            if len(valid_sets) > 1:
+                print(f"too many {keyword} processed data for {subject}") 
+            return valid_sets[0]
+    except FileNotFoundError:
+        print("invalid path found in data dir.")
         return None
-    else:
-        if len(valid_sets) > 1:
-            print(f"too many {keyword} processed data for {subject}") 
-        return valid_sets[0]
 
 
 def get_traj_data(traj_fname):

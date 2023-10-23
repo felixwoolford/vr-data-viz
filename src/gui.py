@@ -59,12 +59,13 @@ class GUIWindow(pqtw.QMainWindow):
         mb.mfile.addAction("Quit").triggered.connect(self.close)
 
     def open_browser(self):
-        fname = pqtw.QFileDialog().getOpenFileName(self, "./", "")[0]
-        lines = self.visualizer.open_data(fname)
-
-        print("opened", fname)
-
-        self.visualizer.set_plots(lines)
+        dialog = pqtw.QFileDialog()
+        dialog.setFileMode(pqtw.QFileDialog.Directory)
+        dialog.setOption(pqtw.QFileDialog.ShowDirsOnly)
+        fname = dialog.getExistingDirectory(self, "Select subject directory")
+        if fname:
+            print("Selected", fname)
+            self.visualizer.change_base_path(fname + "/")
 
 
 class MainFrame(pqtw.QFrame):
@@ -177,11 +178,13 @@ class ControlFrame(pqtw.QFrame):
         frame = pqtw.QFrame(popup)
         frame.setLayout(pqtw.QStackedLayout())
         frame.layout().addWidget(InsertTrajectoryFrame(popup))
+        frame.layout().addWidget(InsertPresetFrame(popup))
         frame.layout().addWidget(InsertTargetFrame(popup))
 
         dropdown = pqtw.QComboBox()
         # dropdown.lineEdit().setReadOnly(True)
         dropdown.addItem("Trajectory")
+        dropdown.addItem("Multiple Trajectory Preset")
         dropdown.addItem("Target")
         dropdown.activated.connect(
             lambda: frame.layout().setCurrentIndex(dropdown.currentIndex()))
@@ -278,6 +281,21 @@ class ControlFrame(pqtw.QFrame):
         self.patch_list.addItem(item)
 
 
+class InsertPresetFrame(pqtw.QFrame):
+    def __init__(self, parent):
+        super(InsertPresetFrame, self).__init__(parent)
+        self.popup = parent
+        # self.hidden_trajectory_frame = InsertTargetFrame(parent)
+        self.fname = self.popup.parent().visualizer.base_path
+        self.fname_label = pqtw.QLabel(self.fname)
+        self.color1 = (0.7, 0., 0.)
+        self.color2 = (0.0, 0.7, 0.)
+        self.avg_color1 = (1., 1., 1.)
+        self.avg_color2 = (1., 1., 1.)
+        self.alpha = 0.2
+        self.avg_alpha = 1.
+
+
 class InsertTrajectoryFrame(pqtw.QFrame):
     def __init__(self, parent):
         super(InsertTrajectoryFrame, self).__init__(parent)
@@ -330,29 +348,67 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         selection_groupBox = pqtw.QGroupBox("Select subjects")
         s_radio1 = pqtw.QRadioButton("All")
         s_radio2 = pqtw.QRadioButton("Select")
-        s_radio3 = pqtw.QRadioButton("Custom indices")
+        s_radio3 = pqtw.QRadioButton("Custom group")
         sgl = pqtw.QGridLayout(selection_groupBox)
         subject_drop = pqtw.QComboBox(selection_groupBox)
-        for subject in self.popup.parent().visualizer.subjects.keys():
+        subject_group_selector_dialog = pqtw.QDialog(self)
+        subject_group_selector_dialog.setLayout(pqtw.QGridLayout())
+        # TODO make the size of this dialog right
+        # subject_group_selector_dialog.setSizePolicy(pqtw.QSizePolicy(
+            # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
+        loading_list = pqtw.QListWidget(self)
+        loading_list.setDragDropMode(pqtw.QAbstractItemView.DragDrop)
+        loading_list.setSelectionMode(pqtw.QAbstractItemView.ExtendedSelection)
+        loading_list.setDefaultDropAction(pqtc.Qt.MoveAction)
+        # loading_list.setSizePolicy(pqtw.QSizePolicy(
+            # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
+        self.using_list = pqtw.QListWidget(self)
+        self.using_list.setDragDropMode(pqtw.QAbstractItemView.DragDrop)
+        self.using_list.setSelectionMode(pqtw.QAbstractItemView.ExtendedSelection)
+        self.using_list.setDefaultDropAction(pqtc.Qt.MoveAction)
+        # self.using_list.setSizePolicy(pqtw.QSizePolicy(
+            # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
+        ll_label = pqtw.QLabel("Unused subjects", subject_group_selector_dialog)
+        ul_label = pqtw.QLabel("Used subjects", subject_group_selector_dialog)
+        subject_group_selector_dialog.layout().addWidget(ul_label, 0, 0, 1, 1)
+        subject_group_selector_dialog.layout().addWidget(ll_label, 0, 1, 1, 1)
+        subject_group_selector_dialog.layout().addWidget(self.using_list, 1, 0, 10, 1)
+        subject_group_selector_dialog.layout().addWidget(loading_list, 1, 1, 10, 1)
+        sgsd_ok_button = pqtw.QPushButton("Ok", subject_group_selector_dialog)
+        sgsd_cancel_button = pqtw.QPushButton("Reset", subject_group_selector_dialog)
+        subject_group_selector_dialog.layout().addWidget(sgsd_ok_button, 11, 0, 1, 1)
+        subject_group_selector_dialog.layout().addWidget(sgsd_cancel_button, 11, 1, 1, 1)
+        sgsd_ok_button.clicked.connect(subject_group_selector_dialog.hide)
+        subject_group_select_button = pqtw.QPushButton("Create group", self)
+        subject_group_select_button.clicked.connect(subject_group_selector_dialog.show)
+
+        def reset_lists():
+            for i in range(self.using_list.count()):
+                loading_list.addItem(self.using_list.item(i))
+            self.using_list.clear()
+        sgsd_cancel_button.clicked.connect(reset_lists)
+
+        for subject in sorted(self.popup.parent().visualizer.subjects.keys()):
             subject_drop.addItem(subject)
-        subject_text = pqtw.QLineEdit("eg. 1, 2, 8, 10-13")
-        self.subject_text = subject_text
+            loading_list.addItem(subject)
+        # subject_text = pqtw.QLineEdit("eg. 1, 2, 8, 10-13")
+        # self.subject_text = subject_text
         self.subject_drop = subject_drop
         self.selection = [s_radio1, s_radio2, s_radio3]
 
         subject_drop.setEnabled(False)
-        subject_text.setEnabled(False)
+        subject_group_select_button.setEnabled(False)
 
         def disable_fields(r):
             if r == 1:
                 subject_drop.setEnabled(False)
-                subject_text.setEnabled(False)
+                subject_group_select_button.setEnabled(False)
             if r == 2:
                 subject_drop.setEnabled(True)
-                subject_text.setEnabled(False)
+                subject_group_select_button.setEnabled(False)
             if r == 3:
                 subject_drop.setEnabled(False)
-                subject_text.setEnabled(True)
+                subject_group_select_button.setEnabled(True)
 
         s_radio1.clicked.connect(lambda: disable_fields(1))
         s_radio2.clicked.connect(lambda: disable_fields(2))
@@ -362,7 +418,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         sgl.addWidget(s_radio2, 1, 0, 1, 1)
         sgl.addWidget(subject_drop, 1, 1, 1, 3)
         sgl.addWidget(s_radio3, 2, 0, 1, 1)
-        sgl.addWidget(subject_text, 2, 1, 1, 3)
+        sgl.addWidget(subject_group_select_button, 2, 1, 1, 3)
         selection_groupBox.setLayout(sgl)
         # self.g_layout.addWidget(selection_groupBox, 12, 0, 2, 2)
 
@@ -471,26 +527,16 @@ class InsertTrajectoryFrame(pqtw.QFrame):
                         filter_types.append(i)
                 i += 1
 
-        def parse_custom_int(text):
-            sub_list = self.popup.parent().visualizer.subjects
-            items = text.split(",")
-            for i in range(len(items)):
-                items[i] = ''.join(e for e in items[i] if e in "012345689-")
+        def parse_custom_int():
             subjects = []
-            for item in items:
-                if "-" in item:
-                    rng = item.split("-")
-                    mn = int(rng[0]) - 1
-                    mx = int(rng[-1])
-                    subjects += sub_list[mn:mx]
-                else:
-                    subjects.append(sub_list[int(item) - 1])
+            for i in range(self.using_list.count()):
+                subjects.append(self.using_list.item(i).text())
             return subjects
 
         subjects = []
         if self.selection[2].isChecked():
             try:
-                subjects = parse_custom_int(self.subject_text.text())
+                subjects = parse_custom_int()
             except ValueError:
                 # TODO make a dialogue, maybe handle differently
                 print("parse_custom_int failed, using ALL subjects instead")
@@ -514,6 +560,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         self.popup.close()
 
 
+# TODO this has errors, related to destruction at least
 class InsertTargetFrame(pqtw.QFrame):
     def __init__(self, parent):
         super(InsertTargetFrame, self).__init__(parent)
@@ -620,8 +667,6 @@ class VisualFrame(pqtw.QFrame):
 
 class GUI:
     def __init__(self, visualizer):
-        # core = core
-        # fps = fps
         if pqtw.QApplication.instance() is None:
             self._app = pqtw.QApplication(sys.argv)
         self._window = GUIWindow(visualizer, self._app)
@@ -637,65 +682,6 @@ class GUI:
 
     def show_windows(self):
         self._window.show()
-        # for w in self._window.mf.slave_windows:
-            # w.show()
-
-    # def add_visual_frame(self, tab, class_, *args, **kwargs):
-        # if threading.current_thread().name == "cli":
-            # print("Adding frames from CLI unsupported, add a new tab instead")
-        # else:
-            # self._window.mf.tabs[tab].new_visual_frame(class_, *args, **kwargs)
-
-    # def add_tab(self, name = "tab", buttons = True, layout = None):
-        # if threading.current_thread().name == "cli":
-            # if layout is None:
-                # print("Must assign a standard layout from CLI")
-            # else:
-                # self._window.add_tab_signal.emit(name, buttons, layout)
-        # else:        
-            # self._window.mf.add_tab(name, buttons, layout)
-
-    # def add_slave(self, name = "Slave Window"):
-        # if threading.current_thread().name == "cli":
-            # self._window.add_slave_signal.emit(name)
-        # else:
-            # self._window.mf.add_slave(name)
-
-    # def insert_visual(self, tab, index, class_, *args, window = 0, **kwargs):
-        # if threading.current_thread().name == "cli":
-            # self._window.insert_visual_signal.emit(window, tab, index, class_, args, kwargs)
-        # else:
-            # if window == 0:
-                # self._window.mf.tabs[tab].frames[index].insert_visual(class_, *args, **kwargs)
-            # else:
-                # w = self._window.mf.slave_windows[window - 1].frame 
-                # if tab != -1:
-                    # w.tabs[tab].frames[index].insert_visual(class_, *args, **kwargs)
-                # else:
-                    # w.new_visual_frame(class_, *args, **kwargs)
-
-    # def swap_visual(self, tab, w_index, v_index, window = 0):
-        # if threading.current_thread().name == "cli":
-            # self._window.swap_visual_signal.emit(tab, w_index, v_index, window)
-        # else:    
-            # if window == 0:
-                # self._window.mf.tabs[tab].frames[w_index].swap_visual(v_index)
-            # else:
-                # w = self._window.mf.slave_windows[window - 1].frame 
-                # if tab != -1:
-                    # w.tabs[tab].frames[w_index].swap_visual(v_index)
-                # else:
-                    # w.swap_visual(v_index)
-
-    # def get_timer(self):
-        # return self._window.mf.timer
-
-    # def pause(self):
-        # self._window.pause_signal.emit()
-
-    # def trigger_update(self):
-        # mf = self._window.mf
-        # mf.tab_changed(mf.qtab.currentIndex())
 
     def _begin(self):
         self._app.exec_()

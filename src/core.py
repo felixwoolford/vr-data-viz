@@ -210,7 +210,7 @@ class Visualizer():
 
     def change_base_path(self, base_path):
         self.base_path = base_path
-        data_reader.get_subjects(base_path)
+        self.subjects = data_reader.get_subjects(base_path)
 
     def get_filters(self, csv, filter_types):
         assert not (FilterType.CONGRUENT in filter_types 
