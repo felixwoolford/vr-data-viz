@@ -8,7 +8,7 @@ import pandas as pd
 
 def get_traj_filenames(path):
     # Using practice of applying Path() at time of use
-    return [path+fname for fname in os.listdir(Path(path))]
+    return sorted([path+fname for fname in os.listdir(Path(path))])
 
 
 def get_processed_data_dir(subject, path, keyword="fda_x"):
@@ -52,13 +52,35 @@ def get_traj_data(traj_fname):
     return (traj_x, traj_y, traj_z)
 
 
+class ObjectShape:
+    def __init__(self, object_id, x, y, z, size, shape, c):
+        self.object_id = object_id
+        self.x = x 
+        # rotated like trajectories are
+        self.y = z 
+        self.z = y 
+        self.size = size
+        self.shape = shape
+        self.c = c 
+
+
+def get_object_data(fname):
+    f = Path(fname).open()
+    csv = pd.read_csv(f)
+    objects = {}
+    for row in csv.itertuples(index=False):
+        obj = ObjectShape(row.object_id, row.x, row.y, row.z, row.size, row.shape, row.colour)
+        objects[row.object_id] = obj
+    return objects
+
+
 def get_results(results_fname):
     # TODO BROKEN for real version
     # global p_path
     # p_path = f"../data/VR-S1/Hand/{person}/S001/"
     # results_fname = p_path + "trial_results.csv"
     results_f = Path(results_fname).open()
-    return pd.read_csv(results_f, delimiter=",")
+    return pd.read_csv(results_f, delimiter=",", dtype=str).fillna("xx")
 
 
 def get_subjects(base_path, all=False):

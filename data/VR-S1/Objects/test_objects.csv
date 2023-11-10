@@ -1,0 +1,4 @@
+object_id,x,y,z,size,shape,colour
+1,-0.1,0.9,0.5,0.03,sphere,blue
+2,-0.2,0.95,0.4,0.03,cube,yellow
+3,0,0.8,0.6,0.05,sphere,white

@@ -1,6 +1,6 @@
 import numpy as np
 from vispy import scene
-from vispy.scene import Line, Sphere
+from vispy.scene import Line, Sphere, Box
 from vispy.visuals.transforms import STTransform
 from vispy.visuals.filters import WireframeFilter
 # from vispy.color import Colormap
@@ -284,6 +284,10 @@ class Viz(BaseVispy):
             plot.parent = None
         del self.plots[plot_id]
 
+    def remove_object(self, target_id):
+        self.targets[target_id].parent = None
+        del self.targets[target_id]
+
     def set_plots(self, lines):
         # lines.parent = self.view.scene
         # lines.draw()
@@ -305,6 +309,10 @@ class Viz(BaseVispy):
                     maxs = np.max(pos[np.invert(np.any(np.isnan(pos), axis=1))], axis=0)
                     absmins = np.min((absmins, mins), axis=0)
                     absmaxs = np.max((absmaxs, maxs), axis=0)
+        for obj in self.targets.values():
+            pos = obj._transform.translate[:3]
+            absmins = np.min((absmins, pos), axis=0)
+            absmaxs = np.max((absmaxs, pos), axis=0)
 
         center = (absmins + absmaxs) / 2
         # width = np.max(maxs - mins)
@@ -344,12 +352,14 @@ class Viz(BaseVispy):
                            # [0, 1, 1],
                            # ])
 
-
-    def add_target(self, target_id, x, y, z, color):
-        target = Sphere(radius=0.05, color=color, shading="smooth")
+    def add_target(self, target_id, x, y, z, size, shape, color):
+        if shape == "sphere":
+            target = Sphere(radius=size, color=color, shading="smooth")
+        elif shape == "cube":
+            target = Box(size, size, size, color=color, edge_color="black",)
         # target.set_gl_state("translucent", depth_test=False)
         target.transform = STTransform(translate=[x, y, z])
         target.parent = self.view.scene
         self.targets[target_id] = target
-
+        self.recenter_camera()
 
