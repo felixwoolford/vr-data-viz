@@ -99,6 +99,10 @@ def get_subjects(base_path, all=False):
         return subjects
 
 
+def export_qa_data(data, output_fname):
+    pass
+
+
 if __name__ == "__main__":
     rcsv = get_results()
     print(get_traj_data(rcsv, 1))

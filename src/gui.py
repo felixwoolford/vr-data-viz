@@ -9,6 +9,7 @@ import PyQt5.QtGui as pqtg
 
 import core
 import data_reader
+import large_strings
 
 
 class GUIWindow(pqtw.QMainWindow):
@@ -27,7 +28,7 @@ class GUIWindow(pqtw.QMainWindow):
         self.setCentralWidget(self.mf)
         # self.mf.setMinimumSize(self.mf.qtab.size())
         # self.move(200, 0)
-        self.setWindowTitle("TODO")
+        self.setWindowTitle("VR Data visualizer 0.5a")
         self.init_menubar()
         self.setGeometry(self._app.primaryScreen().availableGeometry())
         # self.adjustSize()
@@ -198,15 +199,21 @@ class ControlFrame(pqtw.QFrame):
         pl.addWidget(dropdown, 0, 0, 1, 1)
         pl.addWidget(frame, 1, 0, 3, 1)
 
-    def add_trajectory(self, pp):
+    def add_trajectory(self, pp, quintile_analysis=False):
         # try:
-        plot_id = self.visualizer.add_plot(pp)
-        if plot_id is None:
-            return
+        if not quintile_analysis:
+            plot_id = self.visualizer.add_plot(pp)
+            if plot_id is None:
+                return
+            item = pqtw.QListWidgetItem("Trajectory")
+        else:
+            plot_id = self.visualizer.perform_analysis(pp)
+            if plot_id is None:
+                return
+            item = pqtw.QListWidgetItem("QA-TEST")
         # except:
             # TODO -- proper exception and warning
             # pass
-        item = pqtw.QListWidgetItem("Trajectory")
         # bgc = pqtg.QColor(*color)
         # bgc.setRgbF(*color)
         item.setBackground(pqtg.QColor(int(pp.color[0]*255),
@@ -219,7 +226,7 @@ class ControlFrame(pqtw.QFrame):
     def clicked_item(self, item):
         def color_edit():
             color_d = pqtw.QColorDialog(self)
-            self.change_color = color_d.getColor().getRgbF()[:-1]
+            self.change_color = color_d.getColor(parent=self).getRgbF()[:-1]
             hex = '#%02x%02x%02x' % (int(self.change_color[0]*255),
                                      int(self.change_color[1]*255),
                                      int(self.change_color[2]*255))
@@ -458,7 +465,7 @@ class InsertPresetFrame(pqtw.QFrame):
 
     def get_color(self, id, average=False):
         color_d = pqtw.QColorDialog(self)
-        c = color_d.getColor().getRgbF()[:-1]
+        c = color_d.getColor(parent=self).getRgbF()[:-1]
         hex = '#%02x%02x%02x' % (int(c[0]*255),
                                  int(c[1]*255),
                                  int(c[2]*255))
@@ -489,6 +496,14 @@ class InsertPresetFrame(pqtw.QFrame):
             subjects = [self.subject_drop.currentText()]
         else:
             subjects = self.popup.parent().visualizer.subjects
+        if not subjects:
+            warning = pqtw.QMessageBox(pqtw.QMessageBox.Icon.Warning,
+                                       "Empty subject list",
+                                       "The subject list is empty!",
+                                       parent=self)
+            warning.setInformativeText(large_strings.no_subject_warning)
+            warning.show()
+            return
 
         if preset_id == "preset1":
             filter_set = {"congruency": "1"}
@@ -742,6 +757,38 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         t_groupBox.setLayout(tgl)
         self.t_filters = [t_radio1, t_radio2, t_radio3]
 
+        qa_groupBox = pqtw.QGroupBox("Quintile Analysis")
+        self.qa_check = pqtw.QCheckBox(self)
+
+        def toggle_qa():
+            on = self.qa_check.isChecked()
+            if on:
+                self.qa_sorting_drop.setEnabled(True)
+                self.buttons["add"].setText("Add QA plot")
+                self.width_spinbox.setEnabled(True)
+            else:
+                self.qa_sorting_drop.setEnabled(False)
+                self.buttons["add"].setText("Add trajectory")
+                self.width_spinbox.setEnabled(True)
+        self.qa_check.clicked.connect(toggle_qa)
+
+        self.qa_sorting_drop = pqtw.QComboBox(qa_groupBox)
+        for field in (self.popup.parent().visualizer.get_custom_filter_list(True)):
+            self.qa_sorting_drop.addItem(field)
+        self.width_label = pqtw.QLabel("Width:", self)
+        self.width_spinbox = pqtw.QDoubleSpinBox(self)
+        self.width_spinbox.setRange(0.05, 0.5)
+        self.width_spinbox.setSingleStep(0.05)
+        self.width_spinbox.setValue(0.2)
+
+        self.qa_sorting_drop.setEnabled(False)
+        qagl = pqtw.QHBoxLayout(qa_groupBox)
+        qagl.addWidget(self.qa_check)
+        qagl.addWidget(self.qa_sorting_drop)
+        qagl.addWidget(self.width_label)
+        qagl.addWidget(self.width_spinbox)
+        qa_groupBox.setLayout(qagl)
+
         self.frame1.layout().addWidget(self.fname_label)
         self.frame1.layout().addWidget(selection_groupBox)
         self.frame1.layout().addWidget(self.buttons["color"])
@@ -758,10 +805,11 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         self.frame3.layout().addWidget(self.ci_frame)
         self.frame3.layout().addWidget(t_groupBox)
         self.frame3.layout().addWidget(n_groupBox)
+        self.frame3.layout().addWidget(qa_groupBox)
 
     def get_color(self, average=False):
         color_d = pqtw.QColorDialog(self)
-        c = color_d.getColor().getRgbF()[:-1]
+        c = color_d.getColor(parent=self).getRgbF()[:-1]
         hex = '#%02x%02x%02x' % (int(c[0]*255),
                                  int(c[1]*255),
                                  int(c[2]*255))
@@ -811,6 +859,15 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         else:
             subjects = self.popup.parent().visualizer.subjects
 
+        if not subjects:
+            warning = pqtw.QMessageBox(pqtw.QMessageBox.Icon.Warning,
+                                       "Empty subject list",
+                                       "The subject list is empty!",
+                                       parent=self)
+            warning.setInformativeText(large_strings.no_subject_warning)
+            warning.show()
+            return
+
         # NOTE -- this is a bit of a hack for transform and normalisation. 
         # Changes may be needed
         for i, t in enumerate(self.t_filters):
@@ -820,15 +877,30 @@ class InsertTrajectoryFrame(pqtw.QFrame):
             if n.isChecked():
                 normalisation = i 
 
-        pp = core.PlotParameters(subjects, self.color, 
-                                 filter_types, 
-                                 self.avg_color, avg_bool,
-                                 transform,
-                                 self.conf_spinbox.value(),
-                                 normalisation,
-                                 self.custom_filter_frame.get_filters()
-                                 )
-        self.popup.parent().add_trajectory(pp)
+        if not self.qa_check.isChecked():
+            pp = core.PlotParameters(subjects, self.color, 
+                                     filter_types, 
+                                     self.avg_color, avg_bool,
+                                     transform,
+                                     self.conf_spinbox.value(),
+                                     normalisation,
+                                     self.custom_filter_frame.get_filters()
+                                     )
+            self.popup.parent().add_trajectory(pp)
+        else:
+            qap = core.QuintileAnalysisParameters(subjects, self.color,
+                                                  filter_types,
+                                                  self.avg_color, avg_bool,
+                                                  # "init_pos_y",  # sort_field TODO
+                                                  # "start_time",  # sort_field TODO
+                                                  self.qa_sorting_drop.currentText(),
+                                                  transform,
+                                                  normalisation,
+                                                  self.conf_spinbox.value(),
+                                                  self.custom_filter_frame.get_filters(),
+                                                  self.width_spinbox.value()
+                                                  )
+            self.popup.parent().add_trajectory(qap, True)
         self.popup.close()
 
 
@@ -929,7 +1001,7 @@ class InsertTargetFrame(pqtw.QFrame):
         def set(color):
             self.color = color
         color_d = pqtw.QColorDialog(self)
-        self.color = color_d.getColor().getRgbF()[:-1]
+        self.color = color_d.getColor(parent=self).getRgbF()[:-1]
         hex = '#%02x%02x%02x' % (int(self.color[0]*255),
                                  int(self.color[1]*255),
                                  int(self.color[2]*255))

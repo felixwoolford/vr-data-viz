@@ -7,11 +7,12 @@ from vispy.visuals.filters import WireframeFilter
 # import core
 # import numpy as np
 
+
 # Base class for general model visualizations
 class BaseVispy:
     frontend = "vispy"
 
-    def __init__(self, widget, axes=False, range_ = None, interactive=True, aspect = None, **kwargs):
+    def __init__(self, widget, axes=False, range_=None, interactive=True, aspect=None, **kwargs):
         self.canvas = scene.SceneCanvas(
             keys="interactive", parent=widget, show=True, bgcolor="#000000"
         )
@@ -300,7 +301,7 @@ class Viz(BaseVispy):
     def recenter_camera(self):
         absmins = np.array([np.inf] * 3)
         absmaxs = np.array([-np.inf] * 3)
-        print(self.plots)
+        # print(self.plots)
         for plot_list in self.plots.values():
             for plot in plot_list:
                 if type(plot) is Line:
@@ -362,4 +363,3 @@ class Viz(BaseVispy):
         target.parent = self.view.scene
         self.targets[target_id] = target
         self.recenter_camera()
-

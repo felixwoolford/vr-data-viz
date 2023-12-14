@@ -24,8 +24,8 @@ import data_reader
 
 
 class PlotParameters:
-    def __init__(self, subjects, color, filter_types, avg_color, avg_bool, transform,
-                 conf_int, normalisation, custom_filter_set):
+    def __init__(self, subjects, color, filter_types, avg_color,
+                 avg_bool, transform, conf_int, normalisation, custom_filter_set):
         self.subjects = subjects
         self.color = color
         self.filter_types = filter_types
@@ -35,6 +35,23 @@ class PlotParameters:
         self.conf_int = conf_int
         self.normalisation = normalisation
         self.custom_filter_set = custom_filter_set
+
+
+class QuintileAnalysisParameters:
+    def __init__(self, subjects, color, filter_types, avg_color, avg_bool, sort_field,
+                 transform, normalisation, conf_int, custom_filter_set, width):
+        self.normalisation = normalisation
+        self.avg_bool = avg_bool
+        self.subjects = subjects
+        # TODO we might want to make colors plural
+        self.color = color
+        self.filter_types = filter_types
+        self.avg_color = avg_color
+        self.sort_field = sort_field
+        self.transform = transform
+        self.conf_int = conf_int
+        self.custom_filter_set = custom_filter_set
+        self.width = width
 
 
 def cubic_resample(points, n_samples):
@@ -120,32 +137,53 @@ def average_trajectories(points, conf_int, resample=0):
     # return mean_points, confidence
 
 
-def get_trajs(csv, path, filter=None, transform=None, resample=0):
+def get_qa_trajs(quintiled_dframes, path, lines_set, qap):
+    for q, quintile in enumerate(quintiled_dframes):
+        lines = get_trajs(quintile, path, transform=qap.transform, 
+                          q=q, qa_normalisation=qap.normalisation == 2, 
+                          qa_width=qap.width)
+        lines_set[q] = np.concatenate((lines_set[q], lines))
+
+    return lines_set
+
+
+def special_qa_transformation(points, q, width):
+    # width = np.max(points[:, 2]) - np.min(points[:, 2])
+    # print("WIDTH", width)
+    # TODO hardcoding
+    # width = 0.1
+    first = points[0, 2]
+    points[:, 2] = points[:, 2] - first + q * width
+
+
+def get_trajs(csv, path, filter=None, transform=None, resample=0, 
+              q=None, qa_normalisation=False, qa_width=0.2):
     points_all = np.empty((0, 3))
 
     if transform == Transform.LR:
         transform_filter = get_transform_filter(csv, left=True)
     elif transform == Transform.RL:
         transform_filter = get_transform_filter(csv, left=False)
-    else:
-        transform_filter = None
 
     traj_fns = data_reader.get_traj_filenames(path)
-    # TODO how to deal with first 16? -- default block 1 filer?
-    for i in range(16, len(csv["trial_num"])):
+    for transform_i, i in enumerate(csv.index):
         if filter is None or filter[i]:
             points = data_reader.get_traj_data(traj_fns[i])
             points = np.array(points).T
             # TODO resampling is a vanity thing now, resample = n_samples, 0 means don't
             if resample:
                 points = cubic_resample(points, resample) 
-            if transform_filter is not None and transform_filter[i]:
+            if transform in [Transform.LR, Transform.RL] and transform_filter[transform_i]:
                 points[:, 0] *= -1
+            if q is not None and qa_normalisation:
+                special_qa_transformation(points, q, qa_width)
 
             points_all = np.concatenate((points_all,
                                          points,
                                          np.array([[np.nan, np.nan, np.nan]])))
 
+    if q is not None and not qa_normalisation:
+        special_qa_transformation(points_all, q, qa_width)
     return points_all
 
 
@@ -175,20 +213,6 @@ def select_by_custom(results, field_value_dict):
     return mask
 
 
-def get_possible_filters(base_path, subject):
-    fname = base_path + subject + "/S001/trial_results.csv"
-    csv = data_reader.get_results(fname)
-    pf = {}
-    for label in csv.columns:
-        values = np.array(csv[label])
-        possible_values = np.unique(values)
-        possible_values = possible_values[possible_values != "xx"]
-        # TODO IMPORTANT fix hack -- this is not always desired behaviour
-        if len(possible_values) > 1 and len(possible_values) < 20:
-            pf[label] = possible_values
-    return pf
-
-
 def normalise_z(lines, type):
     # mask = np.invert(np.isnan(lines[:, 2]))
 
@@ -207,6 +231,14 @@ def normalise_z(lines, type):
     else:
         mask = lines[0, 2]
     lines[:, 2] -= mask
+
+
+# TODO for now, just force this to always happen
+# hardcoded
+def get_block1_filter(results):
+    blocks = np.array(results["block_num"])
+    mask = blocks != "1"
+    return mask
 
 
 def get_transform_filter(results, left=True):
@@ -289,6 +321,8 @@ class Visualizer():
         if FilterType.RIGHT in filter_types:
             masks.append(select_by_location(csv, False))
         masks.append(select_by_custom(csv, custom_filter_set))
+        # TODO hardcoding
+        masks.append(get_block1_filter(csv))
 
         mask = np.all(np.array(masks), axis=0)
         return mask
@@ -311,6 +345,7 @@ class Visualizer():
 
             lines_all = np.concatenate((lines_all,
                                         lines))
+
         if lines_all.size == 0:
             print("Selected filters removed all subjects")
             return None
@@ -321,7 +356,6 @@ class Visualizer():
         self._viz.add_plot(self._plot_id_counter, lines_all, pp.color, order=3)
         if pp.average:
             average_points, confidence = average_trajectories(lines_all, pp.conf_int)
-            # TODO how to do colors?
             self._viz.add_plot(self._plot_id_counter, average_points, pp.avg_color, width=14.)
             for cline in confidence:
                 self._viz.add_plot(self._plot_id_counter, cline, pp.avg_color, width=7.)
@@ -338,6 +372,62 @@ class Visualizer():
         self._viz.remove_plot(plot_id)
         self._viz.recenter_camera()
 
+    def perform_analysis(self, qap: QuintileAnalysisParameters):
+        n_bins = 5
+        lines_set = [np.empty((0, 3))] * n_bins
+        for subject in qap.subjects:
+            fname = self.base_path + subject + "/S001/trial_results.csv"
+            base_csv = data_reader.get_results(fname)
+            filter = self.get_filters(base_csv, qap.filter_types, qap.custom_filter_set)
+            if not np.any(filter):
+                print("TODO -- manage what happens when invalid filter set applied")
+                return
+
+            # sort
+            # TODO -- is numeric always wanted -- currently is always?
+            base_csv[qap.sort_field] = base_csv[qap.sort_field].astype(float)
+            csv = base_csv[filter].sort_values(qap.sort_field)
+
+            # divide
+            rows = len(csv.index)
+            n_extras = rows % n_bins
+            bigger_bins = sorted(np.random.choice(range(n_bins), n_extras, replace=False))
+            bin_size = rows // n_bins
+            indices = [0]
+            extras = 0
+            for i in range(n_bins):
+                bigbin = i in bigger_bins
+                indices.append((i+1) * bin_size + extras + int(bigbin))
+                if bigbin: 
+                    extras += 1
+            indices = [list(range(indices[i], indices[i+1])) for i in range(n_bins)]
+            quintiled_dframes = [csv.iloc[q] for q in indices]
+
+            # plot
+            lines_set = get_qa_trajs(quintiled_dframes, self.subjects[subject], 
+                                     lines_set, qap)
+
+        # TODO split this up as per chris' needs
+        self._plot_id_counter += 1
+        for lines_all in lines_set:
+            self._viz.add_plot(self._plot_id_counter, lines_all, qap.color, order=3)
+
+        if qap.avg_bool:
+            average_set = []
+            for lines in lines_set:
+                # TODO probably some refactoring with plot traj possible
+                # TODO remove that hardcode like it is in the other. Probably bring pp over
+                average_points, confidence = average_trajectories(lines, qap.conf_int)
+                average_set.append((average_points, confidence))
+            for average_points, confidence in average_set:
+                self._viz.add_plot(self._plot_id_counter, average_points, qap.avg_color, width=14.)
+                for cline in confidence:
+                    self._viz.add_plot(self._plot_id_counter, cline, qap.avg_color, width=7.)
+                self._viz.add_confidence_ribbon(self._plot_id_counter, confidence, color=qap.avg_color)
+
+        self._viz.recenter_camera()
+        return self._plot_id_counter
+
     def remove_object(self, obj_id):
         self._viz.remove_object(obj_id)
         self._viz.recenter_camera()
@@ -353,5 +443,20 @@ class Visualizer():
         self._viz.add_target(self._target_id_counter, x, y, z, size, shape, color)
         return self._target_id_counter
 
-    def get_custom_filter_list(self):
-        return get_possible_filters(self.base_path, list(self.subjects.keys())[0])
+    def get_custom_filter_list(self, qa=False):
+        fname = self.base_path + next(iter(self.subjects.keys())) + "/S001/trial_results.csv"
+        csv = data_reader.get_results(fname)
+        pf = {}
+        for label in csv.columns:
+            values = np.array(csv[label])
+            possible_values = np.unique(values)
+            possible_values = possible_values[possible_values != "xx"]
+            if not qa:
+                # TODO IMPORTANT fix hack -- this is not always desired behaviour
+                if len(possible_values) > 1 and len(possible_values) < 20:
+                    pf[label] = possible_values
+            else:
+                if values[-1].replace(".", "").isnumeric() and len(possible_values) >= 5:
+                    pf[label] = possible_values
+
+        return pf
