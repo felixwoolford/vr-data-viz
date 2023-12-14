@@ -3,7 +3,8 @@ python 3.8+
 Vispy  
 PyQt5  
 numpy  
-pandas  
+pandas
+scipy
 
 
 # Data:
