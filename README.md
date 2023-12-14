@@ -6,6 +6,16 @@ numpy
 pandas
 scipy
 
+With python and pip installed, navigate to the directory containing requitements.txt, open the terminal and type:
+    pip install --user -r requirements.txt
+This will install all of the required libraries.
+Now, in the same terminal, navigate to the src directory:
+   cd src
+and run the python module main.py:
+  python main.py
+
+If there is an error saying that "python" or "pip" is an unknown command, it is likely that you have not updated your PATH variable to include the path to the python binary.
+
 
 # Data:
 By default, subject directories are expected to be located at *../data/VR-S1/Hand*, relative to the
