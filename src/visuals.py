@@ -143,110 +143,6 @@ class Viz(BaseVispy):
         super().__init__(widget, axes=False)
         self.plots = {} 
         self.targets = {}
-        # self.volume_test()
-        # self.plots = core.get_all()
-        # for line in self.plots:
-            # line.parent = self.view.scene
-        # self.plots = []
-        # for i in range(100):
-            # self.plots.append(get_line1(i))
-            # self.plots[-1].parent = self.view.scene
-
-        # points1 = np.array([[1,1,1], [2,2,2], [np.nan, np.nan,np.nan], [3,3,3], [4,4,4]])
-        # print(points1.shape)
-        # points = np.empty((0,3))
-        # print(points.shape)
-        # points = np.concatenate((points,np.array([[1,1,1], [2,2,2]])))
-        # points = np.concatenate((points,np.array([[np.nan, np.nan,np.nan], [3,3,3], [4,4,4]])))
-        # print(points.shape)
-        # # points = np.array([[[1,1,1], [2,2,2], [np.nan, np.nan,np.nan], [3,3,3], [4,4,4]]])
-        # line = Line(points, color=[0.7, 0.2, 0, 0.4], width=4.0, parent=self.view.scene)
-
-    # def volume_test(self):
-        # self.samples = 100
-
-        # def vol(x, z):
-            # if (z < 0.5 + (0.1**2 - (x - 0.5)**2)**0.5 and z > 0.5 - (0.1**2 - (x - 0.5)**2)**0.5):
-                # return (1 / (np.linalg.norm([0.5,0.5]) - np.linalg.norm([x-0.5, z-0.5])))
-            # else:
-                # return 0.
-
-        # X, Y, Z = (np.linspace(0.4, 0.6, self.samples),
-                   # np.linspace(0.2, 0.6, self.samples),
-                   # np.linspace(0.4, 0.6, self.samples)
-                   # )
-
-        # # print(X, Y, Z)
-        # U = []
-        # for z in Z:
-            # for y in Y:
-                # for x in X:
-                    # f = vol(x, z)
-                    # U.append(f)
-
-
-        # colors = Colormap([[0,0,0,0.0],[1,1,1,0.1]], interpolation="linear")
-        # vol1 = np.array(U).reshape(self.samples, self.samples, self.samples)
-
-        # self.volume1 = scene.visuals.Volume(vol1, parent=self.view.scene, 
-                                            # cmap=colors, method = 'translucent',
-                                            # )
-
-    # def highlight():
-        # # TODO remove this cool glowy stuff or fix it
-        # def find_nearest_point_heuristically(p, i):
-            # max_j = len(average_points) - 1
-            # d = np.linalg.norm(p - average_points[i])
-            # h_range = 16
-            # max_iter = 50
-            # while h_range > 1:
-                # max_iter -= 1
-                # j = min(max_j, i + h_range)
-                # k = max(0, i - h_range)
-                # d2j = np.linalg.norm(p - average_points[j])
-                # d2k = np.linalg.norm(p - average_points[k])
-                # if d2j < d2k:
-                    # d2 = d2j
-                # else:
-                    # d2 = d2k
-                    # j = k
-
-                # if d2 < d:
-                    # d = d2
-                    # h_range = 16
-                    # i = j
-                # else:
-                    # h_range = h_range // 2
-            # return d
-        # def find_d_brutal(p):
-            # d = np.linalg.norm(p - average_points[0])
-            # for i in range(1, len(average_points)):
-                # d2 = np.linalg.norm(p - average_points[i])
-                # if d2 < d:
-                    # d = d2
-            # return d
-
-        # color = np.ones((len(points), 4)) * color
-        # i = 0
-        # j = 0
-        # # y = np.array([1, 0, 0, 1])
-        # y = np.clip(color[0] ** (1/3) + np.array([0.8, 0.8, 0, 1]) ** 3, 0, 1)
-        # y[3] = 1
-        # mx = 0.01
-        # if average_points is not None:
-            # for point in points:
-                # if np.all(np.isnan(point)):
-                    # i = 0
-                # else:
-                    # # print(i, len(average_points))
-                    # # ind = np.clip(int(i / (86 / 225)), 0, 225)
-                    # # dist = np.linalg.norm(point - average_points[i])
-                    # dist = find_nearest_point_heuristically(point, i)
-                    # # dist = find_d_brutal(point)
-                    # color[j] = ((y * np.clip((mx - dist) / mx, 0, 1))**2
-                                # + (color[j] * np.clip(dist / mx, 0, 1))**2)**(1/2)
-                    # i += 1
-                # j += 1
 
     def add_plot(self, plot_id, points, color, width=2.0, order=1):
         traj = Line(points, color=color, width=width)
@@ -284,6 +180,13 @@ class Viz(BaseVispy):
         for plot in self.plots[plot_id]:
             plot.parent = None
         del self.plots[plot_id]
+
+    def remove_average_from_plot(self, plot_id):
+        # TODO check if safe 
+        # could be fixed with a dictionary instead of a list as plots entry
+        print("removing the average is an experimental feature! please be careful")
+        for plot in self.plots[plot_id][1:]:
+            plot.parent = None
 
     def remove_object(self, target_id):
         self.targets[target_id].parent = None

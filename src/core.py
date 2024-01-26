@@ -35,6 +35,7 @@ class PlotParameters:
         self.conf_int = conf_int
         self.normalisation = normalisation
         self.custom_filter_set = custom_filter_set
+        self.plot_changed = []
 
 
 class QuintileAnalysisParameters:
@@ -51,7 +52,6 @@ class QuintileAnalysisParameters:
         self.transform = transform
         self.conf_int = conf_int
         self.custom_filter_set = custom_filter_set
-        self.width = width
 
 
 def cubic_resample(points, n_samples):
@@ -137,27 +137,18 @@ def average_trajectories(points, conf_int, resample=0):
     # return mean_points, confidence
 
 
-def get_qa_trajs(quintiled_dframes, path, lines_set, qap):
-    for q, quintile in enumerate(quintiled_dframes):
-        lines = get_trajs(quintile, path, transform=qap.transform, 
-                          q=q, qa_normalisation=qap.normalisation == 2, 
-                          qa_width=qap.width)
-        lines_set[q] = np.concatenate((lines_set[q], lines))
-
+def get_qa_trajs(quintiled_dframes, path):
+    lines_set = []
+    for quintile in quintiled_dframes:
+        lines = get_trajs(quintile, path)
+        # TODO magic no for conf int. Don't think we need to worry
+        average_points, confidence = average_trajectories(lines, 0.95)
+        lines_set.append(np.concatenate((np.empty((0, 3)), average_points)))
+        # lines_set.append(np.concatenate((np.empty((0, 3)), lines)))
     return lines_set
 
 
-def special_qa_transformation(points, q, width):
-    # width = np.max(points[:, 2]) - np.min(points[:, 2])
-    # print("WIDTH", width)
-    # TODO hardcoding
-    # width = 0.1
-    first = points[0, 2]
-    points[:, 2] = points[:, 2] - first + q * width
-
-
-def get_trajs(csv, path, filter=None, transform=None, resample=0, 
-              q=None, qa_normalisation=False, qa_width=0.2):
+def get_trajs(csv, path, filter=None, transform=None, resample=0):
     points_all = np.empty((0, 3))
 
     if transform == Transform.LR:
@@ -175,15 +166,17 @@ def get_trajs(csv, path, filter=None, transform=None, resample=0,
                 points = cubic_resample(points, resample) 
             if transform in [Transform.LR, Transform.RL] and transform_filter[transform_i]:
                 points[:, 0] *= -1
-            if q is not None and qa_normalisation:
-                special_qa_transformation(points, q, qa_width)
+            # TODO -- can remove permanently
+            # if q is not None and qa_normalisation:
+                # special_qa_transformation(points, q, qa_width)
 
             points_all = np.concatenate((points_all,
                                          points,
                                          np.array([[np.nan, np.nan, np.nan]])))
 
-    if q is not None and not qa_normalisation:
-        special_qa_transformation(points_all, q, qa_width)
+    # TODO -- can remove permanently
+    # if q is not None and not qa_normalisation:
+        # special_qa_transformation(points_all, q, qa_width)
     return points_all
 
 
@@ -292,6 +285,8 @@ class Visualizer():
         self._viz = None
         self._plot_id_counter = 0
         self._target_id_counter = 0
+        self.pp_set = {}
+        self.data_for_export_set = {}
 
     def add_viz(self, widget):
         self._viz = Viz(widget)
@@ -355,18 +350,50 @@ class Visualizer():
         self._plot_id_counter += 1
         self._viz.add_plot(self._plot_id_counter, lines_all, pp.color, order=3)
         if pp.average:
-            average_points, confidence = average_trajectories(lines_all, pp.conf_int)
-            self._viz.add_plot(self._plot_id_counter, average_points, pp.avg_color, width=14.)
-            for cline in confidence:
-                self._viz.add_plot(self._plot_id_counter, cline, pp.avg_color, width=7.)
-            self._viz.add_confidence_ribbon(self._plot_id_counter, confidence, color=pp.avg_color)
+            self.add_average(pp, self._plot_id_counter, lines_all)
 
         # self._viz.add_plot(self._plot_id_counter, lines_all, color, order=3,
                            # average_points=average_points)
 
         self._viz.recenter_camera()
+
+        self.pp_set[self._plot_id_counter] = pp
+
         # TODO store data for export
         return self._plot_id_counter
+
+    def edit_plot(self, pp: PlotParameters, plot_id):
+        self.pp_set[plot_id] = pp
+        if "plots" in pp.plot_changed:
+            print(plot_id, self._viz.plots, "PLOTS")
+            self.remove_plot(plot_id)
+            # return new plot_id to replace in the gui
+            return self.add_plot(pp)
+        # NOTE this has to come before average added because of how changing conf int works
+        if "average removed" in pp.plot_changed:
+            self._viz.remove_average_from_plot(plot_id)
+        if "average added" in pp.plot_changed:
+            lines_all = self._viz.plots[plot_id][0].pos
+            self.add_average(pp, plot_id, lines_all)
+        if "col" in pp.plot_changed:
+            self.change_plot_color(plot_id, pp.color)
+        if "avg col" in pp.plot_changed:
+            self.change_avg_color(plot_id, pp.avg_color)
+        return plot_id
+
+    def add_average(self, pp, plot_id, lines):
+        average_points, confidence = average_trajectories(lines, pp.conf_int)
+        self._viz.add_plot(plot_id, average_points, pp.avg_color, width=14.)
+        for cline in confidence:
+            self._viz.add_plot(plot_id, cline, pp.avg_color, width=7.)
+        self._viz.add_confidence_ribbon(plot_id, confidence, color=pp.avg_color)
+        # TODO extend this with what is needed
+        self.data_for_export_set[plot_id] = {"type": "average trajectory",
+                                             "subjects": pp.subjects,
+                                             "average": average_points,
+                                             "confidence": confidence,
+                                             "confidence interval": pp.conf_int,
+                                             }
 
     def remove_plot(self, plot_id):
         self._viz.remove_plot(plot_id)
@@ -374,11 +401,11 @@ class Visualizer():
 
     def perform_analysis(self, qap: QuintileAnalysisParameters):
         n_bins = 5
-        lines_set = [np.empty((0, 3))] * n_bins
         for subject in qap.subjects:
             fname = self.base_path + subject + "/S001/trial_results.csv"
             base_csv = data_reader.get_results(fname)
             filter = self.get_filters(base_csv, qap.filter_types, qap.custom_filter_set)
+
             if not np.any(filter):
                 print("TODO -- manage what happens when invalid filter set applied")
                 return
@@ -404,8 +431,8 @@ class Visualizer():
             quintiled_dframes = [csv.iloc[q] for q in indices]
 
             # plot
-            lines_set = get_qa_trajs(quintiled_dframes, self.subjects[subject], 
-                                     lines_set, qap)
+            print(quintiled_dframes)
+            lines_set = get_qa_trajs(quintiled_dframes, self.subjects[subject])
 
         # TODO split this up as per chris' needs
         self._plot_id_counter += 1
@@ -434,6 +461,10 @@ class Visualizer():
 
     def change_plot_color(self, plot_id, color):
         self._viz.plots[plot_id][0].set_data(color=color)
+
+    def change_avg_color(self, plot_id, color):
+        for plot in self._viz.plots[plot_id][1:]:
+            plot.set_data(color=color)
 
     def change_object_color(self, obj_id, color):
         self._viz.targets[obj_id].mesh.color = color
