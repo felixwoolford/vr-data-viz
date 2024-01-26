@@ -3,7 +3,6 @@ from vispy import scene
 from vispy.scene import Line, Sphere, Box
 from vispy.visuals.transforms import STTransform
 from vispy.visuals.filters import WireframeFilter
-# from vispy.color import Colormap
 # import core
 # import numpy as np
 

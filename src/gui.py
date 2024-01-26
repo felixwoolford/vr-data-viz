@@ -830,8 +830,8 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         elif core.Transform.RL == pp.transform:
             t_radio3.setChecked(True)
         tgl.addWidget(t_radio1)
-        tgl.addWidget(t_radio2)
         tgl.addWidget(t_radio3)
+        tgl.addWidget(t_radio2)
         t_groupBox.setLayout(tgl)
         self.t_filters = [t_radio1, t_radio2, t_radio3]
 
@@ -843,31 +843,43 @@ class InsertTrajectoryFrame(pqtw.QFrame):
             if on:
                 self.qa_sorting_drop.setEnabled(True)
                 self.buttons["add"].setText("Add QA plot")
-                self.width_spinbox.setEnabled(True)
+                self.n_bins_spinbox.setEnabled(True)
+                new_text = f"Colour sequence:\n{self.popup.parent().visualizer.color_seq}"
+                self.buttons["color"].setText(new_text)
+                # self.buttons["color"].clicked.connect(self.select_cseq)
             else:
                 self.qa_sorting_drop.setEnabled(False)
                 self.buttons["add"].setText("Add trajectory")
+                self.buttons["color"].setText("Colour")
+                self.buttons["color"].clicked.connect(self.get_color)
                 if pp:
                     self.buttons["add"].setText("Edit trajectory")
-                self.width_spinbox.setEnabled(True)
+                self.n_bins_spinbox.setEnabled(False)
         self.qa_check.clicked.connect(toggle_qa)
 
         self.qa_sorting_drop = pqtw.QComboBox(qa_groupBox)
         for field in (self.popup.parent().visualizer.get_custom_filter_list(True)):
             self.qa_sorting_drop.addItem(field)
-        self.width_label = pqtw.QLabel("Width:", self)
-        self.width_spinbox = pqtw.QDoubleSpinBox(self)
-        self.width_spinbox.setRange(0.05, 0.5)
-        self.width_spinbox.setSingleStep(0.05)
-        self.width_spinbox.setValue(0.2)
+        self.width_label = pqtw.QLabel("n bins:", self)
+        self.n_bins_spinbox = pqtw.QSpinBox(self)
+        self.n_bins_spinbox.setEnabled(False)
+        self.n_bins_spinbox.setRange(2, 10)
+        self.n_bins_spinbox.setValue(5)
 
         self.qa_sorting_drop.setEnabled(False)
         qagl = pqtw.QHBoxLayout(qa_groupBox)
         qagl.addWidget(self.qa_check)
         qagl.addWidget(self.qa_sorting_drop)
         qagl.addWidget(self.width_label)
-        qagl.addWidget(self.width_spinbox)
+        qagl.addWidget(self.n_bins_spinbox)
         qa_groupBox.setLayout(qagl)
+
+        if pp is not None:
+            if pp.qap:
+                self.qa_check.setChecked(True)
+                self.n_bins_spinbox.setValue(pp.n_bins)
+                self.qa_sorting_drop.setCurrentText(pp.sort_field)
+            self.qa_check.setEnabled(False)
 
         self.frame1.layout().addWidget(self.fname_label)
         self.frame1.layout().addWidget(selection_groupBox)
@@ -889,6 +901,10 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         self.frame3.layout().addWidget(n_groupBox)
         self.frame3.layout().addWidget(qa_groupBox)
 
+    # TODO
+    def select_cseq(self):
+        pass
+    
     def get_color(self, average=False):
         color_d = pqtw.QColorDialog(self)
         c = color_d.getColor(parent=self).getRgbF()[:-1]
@@ -994,18 +1010,16 @@ class InsertTrajectoryFrame(pqtw.QFrame):
                 self.popup.parent().edit_trajectory(new_pp, self.item)
 
         else:
-            qap = core.QuintileAnalysisParameters(subjects, self.color,
-                                                  filter_types,
-                                                  self.avg_color, avg_bool,
-                                                  # "init_pos_y",  # sort_field TODO
-                                                  # "start_time",  # sort_field TODO
-                                                  self.qa_sorting_drop.currentText(),
-                                                  transform,
-                                                  normalisation,
-                                                  self.conf_spinbox.value(),
-                                                  self.custom_filter_frame.get_filters(),
-                                                  self.width_spinbox.value()
-                                                  )
+            qap = core.PlotParameters(subjects, self.color, 
+                                      filter_types, 
+                                      self.avg_color, avg_bool,
+                                      transform,
+                                      self.conf_spinbox.value(),
+                                      normalisation,
+                                      self.custom_filter_frame.get_filters(),
+                                      qap=True, n_bins=self.n_bins_spinbox.value(),
+                                      sort_field=self.qa_sorting_drop.currentText(),
+                                      )
             self.popup.parent().add_trajectory(qap, True)
         self.popup.close()
 

@@ -19,13 +19,16 @@ import numpy as np
 import scipy.stats as st
 from scipy.interpolate import CubicSpline
 
+from matplotlib.pyplot import color_sequences
+
 from visuals import Viz
 import data_reader
 
 
 class PlotParameters:
     def __init__(self, subjects, color, filter_types, avg_color,
-                 avg_bool, transform, conf_int, normalisation, custom_filter_set):
+                 avg_bool, transform, conf_int, normalisation, custom_filter_set,
+                 qap=False, n_bins=5, sort_field=None):
         self.subjects = subjects
         self.color = color
         self.filter_types = filter_types
@@ -36,22 +39,9 @@ class PlotParameters:
         self.normalisation = normalisation
         self.custom_filter_set = custom_filter_set
         self.plot_changed = []
-
-
-class QuintileAnalysisParameters:
-    def __init__(self, subjects, color, filter_types, avg_color, avg_bool, sort_field,
-                 transform, normalisation, conf_int, custom_filter_set, width):
-        self.normalisation = normalisation
-        self.avg_bool = avg_bool
-        self.subjects = subjects
-        # TODO we might want to make colors plural
-        self.color = color
-        self.filter_types = filter_types
-        self.avg_color = avg_color
+        self.qap = qap
+        self.n_bins = n_bins
         self.sort_field = sort_field
-        self.transform = transform
-        self.conf_int = conf_int
-        self.custom_filter_set = custom_filter_set
 
 
 def cubic_resample(points, n_samples):
@@ -137,13 +127,16 @@ def average_trajectories(points, conf_int, resample=0):
     # return mean_points, confidence
 
 
-def get_qa_trajs(quintiled_dframes, path):
+def get_qa_trajs(quintiled_dframes, path, transform):
     lines_set = []
     for quintile in quintiled_dframes:
-        lines = get_trajs(quintile, path)
+        lines = get_trajs(quintile, path, transform=transform)
         # TODO magic no for conf int. Don't think we need to worry
         average_points, confidence = average_trajectories(lines, 0.95)
-        lines_set.append(np.concatenate((np.empty((0, 3)), average_points)))
+        lines_set.append(np.concatenate((np.empty((0, 3)), 
+                                         average_points,
+                                         np.array([[np.nan, np.nan, np.nan]])
+                                         )))
         # lines_set.append(np.concatenate((np.empty((0, 3)), lines)))
     return lines_set
 
@@ -226,6 +219,30 @@ def normalise_z(lines, type):
     lines[:, 2] -= mask
 
 
+def normalise_qap_z(lines, type):
+    # mask = np.invert(np.isnan(lines[:, 2]))
+
+    if type == 2:
+        pass
+        # mask = np.zeros(lines[:, 2].shape)
+        # start_point = True
+        # current_start = 0
+        # for i, p in enumerate(lines[:, 2]):
+            # if start_point:
+                # current_start = p
+                # start_point = False
+            # if np.isnan(p):
+                # start_point = True
+            # else:
+                # mask[i] = current_start
+    else:
+        mask = lines[0][0, 2]
+        for line in lines:
+            line[:, 2] -= mask
+
+    # lines[:, 2] -= mask
+
+
 # TODO for now, just force this to always happen
 # hardcoded
 def get_block1_filter(results):
@@ -287,6 +304,8 @@ class Visualizer():
         self._target_id_counter = 0
         self.pp_set = {}
         self.data_for_export_set = {}
+        self.cseqs = list(color_sequences.keys())
+        self.color_seq = "Set2"
 
     def add_viz(self, widget):
         self._viz = Viz(widget)
@@ -399,8 +418,9 @@ class Visualizer():
         self._viz.remove_plot(plot_id)
         self._viz.recenter_camera()
 
-    def perform_analysis(self, qap: QuintileAnalysisParameters):
-        n_bins = 5
+    def perform_analysis(self, qap: PlotParameters):
+        n_bins = qap.n_bins
+        lines_all = [np.empty((0, 3)) for i in range(n_bins)]
         for subject in qap.subjects:
             fname = self.base_path + subject + "/S001/trial_results.csv"
             base_csv = data_reader.get_results(fname)
@@ -432,25 +452,38 @@ class Visualizer():
 
             # plot
             print(quintiled_dframes)
-            lines_set = get_qa_trajs(quintiled_dframes, self.subjects[subject])
+            lines_set = get_qa_trajs(quintiled_dframes, self.subjects[subject], qap.transform)
+            if qap.normalisation == 1:
+                normalise_qap_z(lines_set, 1)
+            for i, line in enumerate(lines_set):
+                lines_all[i] = np.concatenate((lines_all[i], line))
 
-        # TODO split this up as per chris' needs
+        #TODO need total normalisation
+
         self._plot_id_counter += 1
-        for lines_all in lines_set:
-            self._viz.add_plot(self._plot_id_counter, lines_all, qap.color, order=3)
+        self.pp_set[self._plot_id_counter] = qap
+        # color_set = color_sequences[qap.colour_key]
+        color_set = color_sequences[self.color_seq]
+        for i, lines in enumerate(lines_all):
+            color = color_set[i % len(color_set)]
+            color = (*color, 0.8)  # TODO MAGIC NUMVER
+            self._viz.add_plot(self._plot_id_counter, lines, color, order=3)
 
-        if qap.avg_bool:
+        # TODO this needs to be worked to average across subs
+        if qap.average:
             average_set = []
-            for lines in lines_set:
+            for i, lines in enumerate(lines_all):
+                color = color_set[i % len(color_set)]
+                color2 = (*color, 0.2)  # TODO MAGIC NUMVER
                 # TODO probably some refactoring with plot traj possible
                 # TODO remove that hardcode like it is in the other. Probably bring pp over
                 average_points, confidence = average_trajectories(lines, qap.conf_int)
                 average_set.append((average_points, confidence))
             for average_points, confidence in average_set:
-                self._viz.add_plot(self._plot_id_counter, average_points, qap.avg_color, width=14.)
+                self._viz.add_plot(self._plot_id_counter, average_points, color, width=14.)
                 for cline in confidence:
-                    self._viz.add_plot(self._plot_id_counter, cline, qap.avg_color, width=7.)
-                self._viz.add_confidence_ribbon(self._plot_id_counter, confidence, color=qap.avg_color)
+                    self._viz.add_plot(self._plot_id_counter, cline, color, width=7.)
+                self._viz.add_confidence_ribbon(self._plot_id_counter, confidence, color=color2)
 
         self._viz.recenter_camera()
         return self._plot_id_counter
