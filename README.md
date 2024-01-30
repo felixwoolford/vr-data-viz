@@ -18,13 +18,21 @@ If there is an error saying that "python" or "pip" is an unknown command, it is 
 
 
 # Data:
-By default, subject directories are expected to be located at *../data/VR-S1/Hand*, relative to the
-main.py module.  
-This may be changed via **File**->**Subject directory...** . Select the directory containing the separate
+This section explains how to point the tool to the relavent data, if the data is outside of the default location.
+
+By default, the data is expected to be located at *../data/VR-S1/*, relative to the
+main.py module.
+This will be confirmed on startup by selecting the VR-S1 directory in the selection menu. If the data is in a different location or you wish to use a different data set, navigate to the appropriate directory containing that contains the "Hand" data directory, or its equiavalent. This may be changed after startup 
+via **File**->**Base data directory...**
+The subjects will be expected to be located in *./Hand/, relative to the previously selected data base path. If a future data set uses different trajectories, select the directory containing the subjects via **File**->**Subject directory...** . Select the directory containing the separate
 subject directories, eg. P01, P02, etc
 
-By default, object input files are expected to be located at *../data/VR-S1/Objects*, relative to the
-main.py module.  
+The tool will select what subjects are available with the appropriate preprocessing and log info. By default, these are each those which have "fda_x" preprocessing. To select different preprocessing or logging, use the relevant option in the **File** menu and, for any subject, navigate to the appropriate directory of preprocessed data or logging info file. The tool will then use that file name to load to preprocessed data and logs for other other subjects with that data available.
+
+By default, object input files are expected to be located at *../Objects*, relative to the data base path.
+This may be changed via **File**->**Object directory...**
+
+By default, export output files are expected to be sent to *../Exports*, relative to the data base path.
 This may be changed via **File**->**Object directory...**
 
 # Use:
@@ -33,7 +41,7 @@ Plots are added via the "Add Patch" button at the top of the left panel. This op
 specify the plot parameters.
 
 The dropdown at the top of this new dialog window allows the user to input either a custom
-trajectory specification (default), a preset trajectory specification, or an object specification.
+trajectory specification (default), or an object specification.
 
 ### Custom trajectory:
 This window is divided into three columns. Most options should be self explanatory, less intuitive
@@ -65,12 +73,8 @@ point (0, 0, 0).
 "Per subject" normalisation allows for all subjects' first trajectory to originate from the same start point while
 all subsequent trajectories to originate relative to that start point.
 
-### Preset trajectory:
-This window allows for multiple patches to be quickly added using common configurations.
-Presets may be selected from the list in the first column.
-Currently there is only one preset, which has congruent trials to be plotted left in one colour, while the
-incongruent trials are plotted right in another colour. Subject selection and colours may be
-adjusted as in the previous window.
+The third column also contains also provides an option to plot quantized bins based on a particular sort field.
+
 
 ### Object input:
 This window allows data files to be loaded which specify parameters for one or more objects.
@@ -83,5 +87,5 @@ objects.
 After a patch (plot or object) has been added. Its label will be visible in the list in the left
 panel of the main window, and the plot itself will be visible in the right panel.
 
-Individual plots may have their colour changed or be deleted by double clicking on the label, which
-opens a new dialog window with these options.
+Individual plots may have their parameters changed or be deleted by double clicking on the label, which
+opens a new dialog window with these options. Exporting the data of the trajectory is also possible via this new window.
