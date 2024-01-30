@@ -658,6 +658,8 @@ class InsertTrajectoryFrame(pqtw.QFrame):
             self.buttons["delete"] = pqtw.QPushButton("Delete trajectory", self)
             self.buttons["delete"].clicked.connect(self.delete)
             self.buttons["export"] = pqtw.QPushButton("Export data", self)
+            self.buttons["clone"] = pqtw.QPushButton("Clone patch", self)
+            self.buttons["clone"].clicked.connect(self.clone)
             self.buttons["export"].clicked.connect(self.export)
             if not (pp.average or pp.qap):
                 self.buttons["export"].setEnabled(False)
@@ -963,6 +965,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         self.frame1.layout().addWidget(colour_frame1)
         self.frame1.layout().addWidget(self.buttons["add"])
         if pp is not None:
+            self.frame1.layout().addWidget(self.buttons["clone"])
             self.frame1.layout().addWidget(self.buttons["export"])
             self.frame1.layout().addWidget(self.buttons["delete"])
 
@@ -1004,11 +1007,14 @@ class InsertTrajectoryFrame(pqtw.QFrame):
     def export(self):
         self.send_patch(export=True)
 
+    def clone(self):
+        self.send_patch(clone=True)
+
     def delete(self):
         self.popup.parent().edit_trajectory(None, self.item)
         self.popup.close()
 
-    def send_patch(self, export=False):
+    def send_patch(self, export=False, clone=False):
         self.color = (*self.color, self.alpha_spinbox.value())
         self.avg_color = (*self.avg_color, self.avg_alpha)
         avg_bool = self.avg_checkbox.checkState()
@@ -1075,7 +1081,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
                                          normalisation,
                                          self.custom_filter_frame.get_filters()
                                          )
-            if self.pp is None:
+            if self.pp is None or clone:
                 self.popup.parent().add_trajectory(new_pp)
             else:
                 if (self.pp.subjects != new_pp.subjects
