@@ -24,11 +24,14 @@ from matplotlib.pyplot import color_sequences
 from visuals import Viz
 import data_reader
 
+# import pandas as pd
+
 
 class PlotParameters:
-    def __init__(self, subjects, color, filter_types, avg_color,
+    def __init__(self, label, subjects, color, filter_types, avg_color,
                  avg_bool, transform, conf_int, normalisation, custom_filter_set,
-                 qap=False, n_bins=5, sort_field=None):
+                 qap=False, n_bins=5, sort_field=None, qa_alpha=0.8):
+        self.label = label
         self.subjects = subjects
         self.color = color
         self.filter_types = filter_types
@@ -42,6 +45,7 @@ class PlotParameters:
         self.qap = qap
         self.n_bins = n_bins
         self.sort_field = sort_field
+        self.qa_alpha = qa_alpha
 
 
 def cubic_resample(points, n_samples):
@@ -138,7 +142,7 @@ def get_qa_trajs(quintiled_dframes, path, transform):
                                          np.array([[np.nan, np.nan, np.nan]])
                                          )))
         # lines_set.append(np.concatenate((np.empty((0, 3)), lines)))
-    return lines_set
+    return lines_set, average_points.shape[0]
 
 
 def get_trajs(csv, path, filter=None, transform=None, resample=0):
@@ -294,10 +298,16 @@ class Transform:
 
 
 class Visualizer():
-    def __init__(self):
-        self.base_path = "../data/VR-S1/Hand/"
-        self.object_base_path = "../data/VR-S1/Objects/"
-        self.subjects = data_reader.get_subjects(self.base_path)
+    def __init__(self, data_path="../data/VR-S1/"):
+        self.data_path = data_path
+        self.base_path = self.data_path + "Hand/"
+        self.object_base_path = self.data_path + "Objects/"
+        self.export_base_path = self.data_path + "Exports/"
+        self.pp_keyword = "fda_x"
+        self.log_keyword = "fda_x"
+        self.subjects, self.logs = data_reader.get_subjects(self.base_path, 
+                                                            self.pp_keyword,
+                                                            self.log_keyword)
         self.results = None
         self._viz = None
         self._plot_id_counter = 0
@@ -310,9 +320,43 @@ class Visualizer():
     def add_viz(self, widget):
         self._viz = Viz(widget)
 
+    def change_data_path(self, data_path):
+        self.data_path = data_path
+        self.change_base_path(data_path + "Hand/")
+
     def change_base_path(self, base_path):
         self.base_path = base_path
-        self.subjects = data_reader.get_subjects(base_path)
+        self.subjects, self.logs = data_reader.get_subjects(self.base_path, 
+                                                            self.pp_keyword,
+                                                            self.log_keyword)
+
+    # TODO i think if someone makes some trajectories, keeps them, and then changes 
+    # the keywords to make those trajectories invalid, we might get a crash if they then edit
+    def change_keyword(self, example, log=False):
+        keyword = example.split("/")[-1]
+        number_split = None
+        for c in keyword:
+            if c.isdigit():
+                number_split = c
+                break
+        if number_split is None:
+            return False
+        keyword = keyword.split(number_split)[0]
+        if log:
+            old = self.log_keyword
+            self.log_keyword = keyword
+        else:
+            old = self.pp_keyword
+            self.pp_keyword = keyword
+        self.change_base_path(self.base_path)
+        if len(self.subjects) == 0:
+            if log:
+                self.log_keyword = old
+            else:
+                self.pp_keyword = old
+            self.change_base_path(self.base_path)
+            return False
+        return True
 
     def get_filters(self, csv, filter_types, custom_filter_set):
         assert not (FilterType.CONGRUENT in filter_types 
@@ -348,6 +392,9 @@ class Visualizer():
             # TODO this assumes the curent dir structure
             fname = self.base_path + subject + "/S001/trial_results.csv"
             results = data_reader.get_results(fname)
+            log_fname = self.logs[subject]
+            logs = data_reader.get_results(log_fname)
+            results = data_reader.concat_rl(results, logs)
             filter = self.get_filters(results, pp.filter_types, pp.custom_filter_set)
             if not np.any(filter):
                 continue
@@ -378,19 +425,46 @@ class Visualizer():
 
         self.pp_set[self._plot_id_counter] = pp
 
-        # TODO store data for export
         return self._plot_id_counter
+
+    def export_data(self, label):
+        data_reader.export_qa_data(self.data_for_export_set[label], self.export_base_path)
 
     def edit_plot(self, pp: PlotParameters, plot_id):
         self.pp_set[plot_id] = pp
         if "plots" in pp.plot_changed:
-            print(plot_id, self._viz.plots, "PLOTS")
             self.remove_plot(plot_id)
+            try:
+                del self.data_for_export_set[pp.label]
+            except KeyError:
+                try:
+                    del self.data_for_export_set[pp.old_label]
+                except AttributeError:
+                    pass
+                except KeyError:
+                    print("missing data? TODO")
             # return new plot_id to replace in the gui
             return self.add_plot(pp)
+        if "qap" in pp.plot_changed:
+            self.remove_plot(plot_id)
+            try:
+                del self.data_for_export_set[pp.label]
+            except KeyError:
+                try:
+                    del self.data_for_export_set[pp.old_label]
+                except AttributeError:
+                    pass
+                except KeyError:
+                    print("missing data? TODO")
+            # return new plot_id to replace in the gui
+            return self.perform_analysis(pp)
         # NOTE this has to come before average added because of how changing conf int works
         if "average removed" in pp.plot_changed:
             self._viz.remove_average_from_plot(plot_id)
+            try:
+                del self.data_for_export_set[pp.label]
+            except KeyError:
+                del self.data_for_export_set[pp.old_label]
         if "average added" in pp.plot_changed:
             lines_all = self._viz.plots[plot_id][0].pos
             self.add_average(pp, plot_id, lines_all)
@@ -398,6 +472,11 @@ class Visualizer():
             self.change_plot_color(plot_id, pp.color)
         if "avg col" in pp.plot_changed:
             self.change_avg_color(plot_id, pp.avg_color)
+        if "label" in pp.plot_changed:
+            self.data_for_export_set[pp.label] = self.data_for_export_set[pp.old_label]
+            del self.data_for_export_set[pp.old_label]
+        if "alpha" in pp.plot_changed:
+            self.change_qap_alpha(plot_id, pp.qa_alpha)
         return plot_id
 
     def add_average(self, pp, plot_id, lines):
@@ -407,12 +486,18 @@ class Visualizer():
             self._viz.add_plot(plot_id, cline, pp.avg_color, width=7.)
         self._viz.add_confidence_ribbon(plot_id, confidence, color=pp.avg_color)
         # TODO extend this with what is needed
-        self.data_for_export_set[plot_id] = {"type": "average trajectory",
-                                             "subjects": pp.subjects,
-                                             "average": average_points,
-                                             "confidence": confidence,
-                                             "confidence interval": pp.conf_int,
-                                             }
+        # TODO if qa gets sent into here, we need to check for it
+        self.data_for_export_set[pp.label] = {"label": pp.label,
+                                              "type": "average trajectory",
+                                              "subjects": pp.subjects,
+                                              "average": average_points,
+                                              "confidence": confidence,
+                                              "confidence interval": pp.conf_int,
+                                              "filters": pp.filter_types,
+                                              "extra_filters": pp.custom_filter_set,
+                                              "transformations": pp.transform,
+                                              "normalisation": pp.normalisation
+                                              }
 
     def remove_plot(self, plot_id):
         self._viz.remove_plot(plot_id)
@@ -424,6 +509,9 @@ class Visualizer():
         for subject in qap.subjects:
             fname = self.base_path + subject + "/S001/trial_results.csv"
             base_csv = data_reader.get_results(fname)
+            log_fname = self.logs[subject]
+            logs = data_reader.get_results(log_fname)
+            base_csv = data_reader.concat_rl(base_csv, logs)
             filter = self.get_filters(base_csv, qap.filter_types, qap.custom_filter_set)
 
             if not np.any(filter):
@@ -432,6 +520,7 @@ class Visualizer():
 
             # sort
             # TODO -- is numeric always wanted -- currently is always?
+            # print(subject)
             base_csv[qap.sort_field] = base_csv[qap.sort_field].astype(float)
             csv = base_csv[filter].sort_values(qap.sort_field)
 
@@ -447,18 +536,23 @@ class Visualizer():
                 indices.append((i+1) * bin_size + extras + int(bigbin))
                 if bigbin: 
                     extras += 1
-            indices = [list(range(indices[i], indices[i+1])) for i in range(n_bins)]
-            quintiled_dframes = [csv.iloc[q] for q in indices]
+            indices2 = [list(range(indices[i], indices[i+1])) for i in range(n_bins)]
+            quintiled_dframes = [csv.iloc[q] for q in indices2]
+            q_ranges = [(csv.iloc[indices[i]][qap.sort_field], csv.iloc[indices[i+1]-1][qap.sort_field]) 
+                        for i in range(n_bins)]
+            # q_ranges.append((csv.iloc[indices[-1]][qap.sort_field], csv.iloc[csv.shape[0]-1][qap.sort_field]))
+            # with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+                # print("qranges", indices, q_ranges)
 
             # plot
-            print(quintiled_dframes)
-            lines_set = get_qa_trajs(quintiled_dframes, self.subjects[subject], qap.transform)
+            # print(quintiled_dframes)
+            lines_set, l_length = get_qa_trajs(quintiled_dframes, self.subjects[subject], qap.transform)
             if qap.normalisation == 1:
                 normalise_qap_z(lines_set, 1)
             for i, line in enumerate(lines_set):
                 lines_all[i] = np.concatenate((lines_all[i], line))
 
-        #TODO need total normalisation
+        # TODO need total normalisation
 
         self._plot_id_counter += 1
         self.pp_set[self._plot_id_counter] = qap
@@ -466,8 +560,25 @@ class Visualizer():
         color_set = color_sequences[self.color_seq]
         for i, lines in enumerate(lines_all):
             color = color_set[i % len(color_set)]
-            color = (*color, 0.8)  # TODO MAGIC NUMVER
+            color_text = (*color, 0.8)
+            color = (*color, qap.qa_alpha)
             self._viz.add_plot(self._plot_id_counter, lines, color, order=3)
+            self._viz.qa_legend(qap.label, color_text, i, self._plot_id_counter)
+
+        self.data_for_export_set[qap.label] = {"label": qap.label,
+                                               "type": "quintile analysis",
+                                               "subjects": qap.subjects,
+                                               "n bins": qap.n_bins,
+                                               "lines": lines_all,
+                                               "sort field": qap.sort_field,
+                                               # TODO this isn't sorted out for multiple
+                                               "q ranges": q_ranges,
+                                               "filters": qap.filter_types,
+                                               "extra_filters": qap.custom_filter_set,
+                                               "transformations": qap.transform,
+                                               "normalisation": qap.normalisation,
+                                               "length": l_length,
+                                               }
 
         # TODO this needs to be worked to average across subs
         if qap.average:
@@ -486,6 +597,7 @@ class Visualizer():
                 self._viz.add_confidence_ribbon(self._plot_id_counter, confidence, color=color2)
 
         self._viz.recenter_camera()
+
         return self._plot_id_counter
 
     def remove_object(self, obj_id):
@@ -502,14 +614,37 @@ class Visualizer():
     def change_object_color(self, obj_id, color):
         self._viz.targets[obj_id].mesh.color = color
 
+    def change_qap_alpha(self, plot_id, alpha):
+        color_set = color_sequences[self.color_seq]
+        # i = 0
+        for i, line in enumerate(self._viz.plots[plot_id]):
+            if "_line_visual" in vars(line):
+                color = color_set[i % len(color_set)]
+                color = (*color, alpha)  # TODO MAGIC NUMVER
+                # line.color = color
+                line.set_data(color=color)
+                # i += 1
+        # i = 0
+        # for line in self._viz.plots[plot_id]:
+            # if "_line_visual" not in vars(line):
+                # color = color_set[i % len(color_set)]
+                # color = (*color, alpha)  # TODO MAGIC NUMVER
+                # # line.color = color
+                # line.color = color
+                # i += 1
+
     def add_target(self, x, y, z, size, shape, color):
         self._target_id_counter += 1
         self._viz.add_target(self._target_id_counter, x, y, z, size, shape, color)
         return self._target_id_counter
 
     def get_custom_filter_list(self, qa=False):
-        fname = self.base_path + next(iter(self.subjects.keys())) + "/S001/trial_results.csv"
+        subject = next(iter(self.subjects.keys()))
+        fname = self.base_path + subject + "/S001/trial_results.csv"
         csv = data_reader.get_results(fname)
+        log_fname = self.logs[subject]
+        logs = data_reader.get_results(log_fname)
+        csv = data_reader.concat_rl(csv, logs)
         pf = {}
         for label in csv.columns:
             values = np.array(csv[label])
@@ -520,7 +655,7 @@ class Visualizer():
                 if len(possible_values) > 1 and len(possible_values) < 20:
                     pf[label] = possible_values
             else:
-                if values[-1].replace(".", "").isnumeric() and len(possible_values) >= 5:
+                if values[-1].replace(".", "").replace("-", "").isnumeric() and len(possible_values) >= 5:
                     pf[label] = possible_values
 
         return pf

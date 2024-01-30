@@ -1,15 +1,17 @@
 # TODO -- presets in second colomn of addpatch
 # -- second colour
-# 
+import sys
+
 import gui
 # import visuals
-import core
 
 if __name__ == "__main__":
-    v = core.Visualizer()
-    g = gui.GUI(v)
+    # v = core.Visualizer()
+    data_path = sys.argv[1] if len(sys.argv) > 1 else None
+    g = gui.GUI(data_path)
     # TODO this doesn't need to be like this
     frame = g._window.mf.new_visual_frame(None)
+    v = g._window.visualizer
     v.add_viz(frame)
     frame.set_visual(v._viz)
     g.show_windows()

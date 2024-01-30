@@ -20,10 +20,12 @@ class GUIWindow(pqtw.QMainWindow):
     # insert_visual_signal = pqtc.pyqtSignal(int, int, object, object, object)
     # swap_visual_signal = pqtc.pyqtSignal(int, int, int)
 
-    def __init__(self, visualizer: core.Visualizer, _app):
+    def __init__(self, _app, data_path=None):
         super().__init__(None, pqtc.Qt.WindowStaysOnTopHint)
         self._app = _app
-        self.visualizer = visualizer
+        if data_path is None:
+            data_path = self.open_browser(path="../data/")
+        self.visualizer = core.Visualizer(data_path)
         self.mf = MainFrame(self)
         self.setCentralWidget(self.mf)
         # self.mf.setMinimumSize(self.mf.qtab.size())
@@ -50,30 +52,67 @@ class GUIWindow(pqtw.QMainWindow):
         mb = self.menuBar()
         mb.mfile = mb.addMenu("File")
         mb.mhelp = mb.addMenu("Help")
+        data_action = mb.mfile.addAction("Base data directory...")
+        data_action.triggered.connect(lambda: self.open_browser(3))
+        separator = pqtw.QAction(self)
+        separator.setSeparator(True)
+        # Adding the separator to the menu
+        mb.mfile.addAction(separator)
         open_action = mb.mfile.addAction("Subject directory...")
         open_action.triggered.connect(self.open_browser)
         open_obj_action = mb.mfile.addAction("Object directory...")
-        open_obj_action.triggered.connect(lambda: self.open_browser(True))
+        open_obj_action.triggered.connect(lambda: self.open_browser(1))
+        open_exp_action = mb.mfile.addAction("Export directory...")
+        open_exp_action.triggered.connect(lambda: self.open_browser(2))
 
         # Creating a separator action
         separator = pqtw.QAction(self)
         separator.setSeparator(True)
         # Adding the separator to the menu
         mb.mfile.addAction(separator)
+        pp_dialog_action = mb.mfile.addAction("Select preprocess type by example...")
+        pp_dialog_action.triggered.connect(self.keyword_browser)
+        log_dialog_action = mb.mfile.addAction("Select log type by example...")
+        log_dialog_action.triggered.connect(lambda: self.keyword_browser(True))
 
+        separator = pqtw.QAction(self)
+        separator.setSeparator(True)
+        # Adding the separator to the menu
+        mb.mfile.addAction(separator)
         mb.mfile.addAction("Quit").triggered.connect(self.close)
 
-    def open_browser(self, obj=False):
+    def open_browser(self, obj=0, path=None):
         dialog = pqtw.QFileDialog()
         dialog.setFileMode(pqtw.QFileDialog.Directory)
         dialog.setOption(pqtw.QFileDialog.ShowDirsOnly)
-        fname = dialog.getExistingDirectory(self, "Select subject directory")
+        if path is not None:
+            fname = dialog.getExistingDirectory(self, "Select data base dir (eg. VR-S1)", path)
+            if fname:
+                return fname + "/"
+        fname = dialog.getExistingDirectory(self, "Select directory", self.visualizer.data_path)
         if fname:
             print("Selected", fname)
-            if not obj:
+            if obj == 0:
                 self.visualizer.change_base_path(fname + "/")
-            else:
+            elif obj == 1:
                 self.visualizer.object_base_path = fname + "/"
+            elif obj == 2:
+                self.visualizer.export_base_path = fname + "/"
+            elif obj == 3:
+                self.visualizer.change_data_path(fname + "/")
+
+    def keyword_browser(self, log=False):
+        dialog = pqtw.QFileDialog()
+        if not log:
+            dialog.setFileMode(pqtw.QFileDialog.Directory)
+            dialog.setOption(pqtw.QFileDialog.ShowDirsOnly)
+        fname = dialog.getExistingDirectory(self, "Select example", self.visualizer.data_path)
+        if fname:
+            changed = self.visualizer.change_keyword(fname, log)
+            if not changed:
+                print("gg")
+                warning = pqtw.QErrorMessage(self)
+                warning.showMessage("keyword change failed, ensure you selected a valid example")
 
 
 class MainFrame(pqtw.QFrame):
@@ -200,6 +239,9 @@ class ControlFrame(pqtw.QFrame):
         pl.addWidget(dropdown, 0, 0, 1, 1)
         pl.addWidget(frame, 1, 0, 3, 1)
 
+    def export(self, pp):
+        self.visualizer.export_data(pp.label)
+
     def edit_trajectory(self, pp, item):
         plot_id = item.data(1)["patch_id"]
         if pp is None:
@@ -219,6 +261,7 @@ class ControlFrame(pqtw.QFrame):
             item.setData(1, {"type": item.data(1)["type"], 
                              "patch_id": item.data(1)["patch_id"], 
                              "color": color})
+            item.setText(pp.label)
 
     def edit_qa(self, pp, item_id):
         pass
@@ -229,12 +272,11 @@ class ControlFrame(pqtw.QFrame):
             plot_id = self.visualizer.add_plot(pp)
             if plot_id is None:
                 return
-            item = pqtw.QListWidgetItem("Trajectory")
         else:
             plot_id = self.visualizer.perform_analysis(pp)
             if plot_id is None:
                 return
-            item = pqtw.QListWidgetItem("QA-TEST")
+        item = pqtw.QListWidgetItem(pp.label)
         # except:
             # TODO -- proper exception and warning
             # pass
@@ -246,6 +288,9 @@ class ControlFrame(pqtw.QFrame):
         item.setData(1, {"type": "plot", "patch_id": plot_id, "color": pp.color})
         # item.setFocusPolicy(pqtc.Qt.FocusPolicy.NoFocus)
         self.patch_list.addItem(item)
+
+    def get_export_data(self):
+        pass
 
     def clicked_object(self, item):
         def color_edit():
@@ -578,11 +623,17 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         self.item = item
         self.fname = self.popup.parent().visualizer.base_path
         self.fname_label = pqtw.QLabel(self.fname)
+
+        self.label = pqtw.QLineEdit()
+        if pp is not None:
+            self.label.setText(pp.label)
+        else:
+            self.label.setText("Trajectory")
         # TODO cycle this
         self.color = pp.color[:3] if pp else (0.9, 0., 0.)
         self.avg_color = pp.avg_color[:3] if pp else (1., 1., 1.)
         # TODO variabel
-        self.alpha = 0.3
+        self.alpha = pp.color[3] if pp else 0.3
         self.avg_alpha = 1.
 
         # self.g_layout = pqtw.QGridLayout()
@@ -606,16 +657,25 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         if pp is not None:
             self.buttons["delete"] = pqtw.QPushButton("Delete trajectory", self)
             self.buttons["delete"].clicked.connect(self.delete)
+            self.buttons["export"] = pqtw.QPushButton("Export data", self)
+            self.buttons["export"].clicked.connect(self.export)
+            if not (pp.average or pp.qap):
+                self.buttons["export"].setEnabled(False)
+                self.buttons["export"].setText("no avg or qa to export")
+
         if pp:
             self.buttons["add"].setText("Edit trajectory")
         # self.buttons["add"].setEnabled(False)
         self.buttons["cancel"] = pqtw.QPushButton("Cancel", self)
-        self.buttons["color"] = pqtw.QPushButton("Color", self)
+        self.buttons["color"] = pqtw.QPushButton("Colour", self)
         hex = '#%02x%02x%02x' % (int(self.color[0]*255),
                                  int(self.color[1]*255),
                                  int(self.color[2]*255))
-        print("COLOR", hex)
         self.buttons["color"].setStyleSheet(f"background-color:{hex};")
+        self.alpha_spinbox = pqtw.QDoubleSpinBox(self)
+        self.alpha_spinbox.setRange(0, 1)
+        self.alpha_spinbox.setSingleStep(0.05)
+        self.alpha_spinbox.setValue(self.alpha)
         # self.buttons["get"].clicked.connect(self.open_browser)
         self.buttons["add"].clicked.connect(self.send_patch)
         self.buttons["cancel"].clicked.connect(self.popup.close)
@@ -637,50 +697,57 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         # TODO make the size of this dialog right
         # subject_group_selector_dialog.setSizePolicy(pqtw.QSizePolicy(
             # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
-        loading_list = pqtw.QListWidget(self)
-        loading_list.setDragDropMode(pqtw.QAbstractItemView.DragDrop)
-        loading_list.setSelectionMode(pqtw.QAbstractItemView.ExtendedSelection)
-        loading_list.setDefaultDropAction(pqtc.Qt.MoveAction)
-        loading_list.setSortingEnabled(True)
+        self.loading_list = pqtw.QListWidget(self)
+        # self.loading_list.setDragDropMode(pqtw.QAbstractItemView.DragDrop)
+        self.loading_list.setSelectionMode(pqtw.QAbstractItemView.ExtendedSelection)
+        self.loading_list.setDefaultDropAction(pqtc.Qt.MoveAction)
+        self.loading_list.setSortingEnabled(True)
         # loading_list.setSizePolicy(pqtw.QSizePolicy(
             # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
-        self.using_list = pqtw.QListWidget(self)
-        self.using_list.setDragDropMode(pqtw.QAbstractItemView.DragDrop)
-        self.using_list.setSelectionMode(pqtw.QAbstractItemView.ExtendedSelection)
-        self.using_list.setDefaultDropAction(pqtc.Qt.MoveAction)
+        # self.using_list = pqtw.QListWidget(self)
+        # self.using_list.setDragDropMode(pqtw.QAbstractItemView.DragDrop)
+        # self.using_list.setSelectionMode(pqtw.QAbstractItemView.ExtendedSelection)
+        # self.using_list.setDefaultDropAction(pqtc.Qt.MoveAction)
         # self.using_list.setSizePolicy(pqtw.QSizePolicy(
             # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
-        ll_label = pqtw.QLabel("Unused subjects", subject_group_selector_dialog)
-        ul_label = pqtw.QLabel("Used subjects", subject_group_selector_dialog)
-        subject_group_selector_dialog.layout().addWidget(ul_label, 0, 0, 1, 1)
-        subject_group_selector_dialog.layout().addWidget(ll_label, 0, 1, 1, 1)
-        subject_group_selector_dialog.layout().addWidget(self.using_list, 1, 0, 10, 1)
-        subject_group_selector_dialog.layout().addWidget(loading_list, 1, 1, 10, 1)
+        ll_label = pqtw.QLabel("Select subjects", subject_group_selector_dialog)
+        # ul_label = pqtw.QLabel("Used subjects", subject_group_selector_dialog)
+        # subject_group_selector_dialog.layout().addWidget(ul_label, 0, 0, 1, 1)
+        subject_group_selector_dialog.layout().addWidget(ll_label, 0, 0, 1, 2)
+        # subject_group_selector_dialog.layout().addWidget(self.using_list, 1, 0, 10, 1)
+        subject_group_selector_dialog.layout().addWidget(self.loading_list, 1, 0, 15, 2)
         sgsd_ok_button = pqtw.QPushButton("Ok", subject_group_selector_dialog)
         sgsd_cancel_button = pqtw.QPushButton("Reset", subject_group_selector_dialog)
-        subject_group_selector_dialog.layout().addWidget(sgsd_ok_button, 11, 0, 1, 1)
-        subject_group_selector_dialog.layout().addWidget(sgsd_cancel_button, 11, 1, 1, 1)
+        subject_group_selector_dialog.layout().addWidget(sgsd_ok_button, 16, 0, 1, 1)
+        subject_group_selector_dialog.layout().addWidget(sgsd_cancel_button, 16, 1, 1, 1)
         sgsd_ok_button.clicked.connect(subject_group_selector_dialog.hide)
         subject_group_select_button = pqtw.QPushButton("Create group", self)
         subject_group_select_button.clicked.connect(subject_group_selector_dialog.show)
 
         def reset_lists():
-            for i in range(self.using_list.count()):
-                loading_list.addItem(self.using_list.item(i).data(0))
-            self.using_list.clear()
+            self.loading_list.clearSelection()
+            # for i in range(self.using_list.count()):
+                # self.loading_list.addItem(self.using_list.item(i).data(0))
+            # self.using_list.clear()
         sgsd_cancel_button.clicked.connect(reset_lists)
 
         for subject in sorted(self.popup.parent().visualizer.subjects.keys()):
             subject_drop.addItem(subject)
-            loading_list.addItem(subject)
-        # subject_text = pqtw.QLineEdit("eg. 1, 2, 8, 10-13")
+            self.loading_list.addItem(subject)
+            if pp and subject in pp.subjects:
+                self.loading_list.item(self.loading_list.count()-1).setSelected(True)
+        # subject_text = pqtw.QLineEdit("eg. 1, 2, 8, 1/0-13")
         # self.subject_text = subject_text
         self.subject_drop = subject_drop
         self.selection = [s_radio1, s_radio2, s_radio3]
 
-        if pp is None or len(pp.subjects) != 1:
+        if pp is None or len(pp.subjects) == len(self.popup.parent().visualizer.subjects.keys()):
             subject_drop.setEnabled(False)
             subject_group_select_button.setEnabled(False)
+        elif len(pp.subjects) == 1:
+            subject_group_select_button.setEnabled(False)
+        else:
+            subject_drop.setEnabled(False)
 
         def disable_fields(r):
             if r == 1:
@@ -788,7 +855,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
 
         filter_dialog = pqtw.QDialog(self)
         self.custom_filter_frame = CustomFilterFrame(
-            filter_dialog, self.popup.parent().visualizer.get_custom_filter_list())
+            filter_dialog, self.popup.parent().visualizer.get_custom_filter_list(), pp)
         filter_dialog.setLayout(pqtw.QHBoxLayout())
         filter_dialog.layout().addWidget(self.custom_filter_frame)
 
@@ -841,13 +908,17 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         def toggle_qa():
             on = self.qa_check.isChecked()
             if on:
+                self.label.setText("Quintile")
                 self.qa_sorting_drop.setEnabled(True)
                 self.buttons["add"].setText("Add QA plot")
                 self.n_bins_spinbox.setEnabled(True)
-                new_text = f"Colour sequence:\n{self.popup.parent().visualizer.color_seq}"
+                # new_text = f"Colour sequence:\n{self.popup.parent().visualizer.color_seq}"
+                new_text = f"{self.popup.parent().visualizer.color_seq}"
                 self.buttons["color"].setText(new_text)
+                self.alpha_spinbox.setValue(0.8)
                 # self.buttons["color"].clicked.connect(self.select_cseq)
             else:
+                self.label.setText("Trajectory")
                 self.qa_sorting_drop.setEnabled(False)
                 self.buttons["add"].setText("Add trajectory")
                 self.buttons["color"].setText("Colour")
@@ -855,6 +926,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
                 if pp:
                     self.buttons["add"].setText("Edit trajectory")
                 self.n_bins_spinbox.setEnabled(False)
+                self.alpha_spinbox.setValue(0.3)
         self.qa_check.clicked.connect(toggle_qa)
 
         self.qa_sorting_drop = pqtw.QComboBox(qa_groupBox)
@@ -882,10 +954,16 @@ class InsertTrajectoryFrame(pqtw.QFrame):
             self.qa_check.setEnabled(False)
 
         self.frame1.layout().addWidget(self.fname_label)
+        self.frame1.layout().addWidget(self.label)
         self.frame1.layout().addWidget(selection_groupBox)
-        self.frame1.layout().addWidget(self.buttons["color"])
+        colour_frame1 = pqtw.QFrame(self) 
+        colour_frame1.setLayout(pqtw.QHBoxLayout())
+        colour_frame1.layout().addWidget(self.buttons["color"])
+        colour_frame1.layout().addWidget(self.alpha_spinbox)
+        self.frame1.layout().addWidget(colour_frame1)
         self.frame1.layout().addWidget(self.buttons["add"])
         if pp is not None:
+            self.frame1.layout().addWidget(self.buttons["export"])
             self.frame1.layout().addWidget(self.buttons["delete"])
 
         self.frame2.layout().addWidget(c_groupBox)
@@ -901,10 +979,10 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         self.frame3.layout().addWidget(n_groupBox)
         self.frame3.layout().addWidget(qa_groupBox)
 
-    # TODO
+    # TODO colour sequencing
     def select_cseq(self):
         pass
-    
+
     def get_color(self, average=False):
         color_d = pqtw.QColorDialog(self)
         c = color_d.getColor(parent=self).getRgbF()[:-1]
@@ -923,12 +1001,16 @@ class InsertTrajectoryFrame(pqtw.QFrame):
             # self, ("Results path"), "../data", ("trial_results (trial_results.csv)"))[0]
         # self.buttons["add"].setEnabled(True)
         # self.fname_label.setText(self.fname)
+    def export(self):
+        self.popup.parent().export(self.pp)
+        self.popup.close()
+
     def delete(self):
         self.popup.parent().edit_trajectory(None, self.item)
         self.popup.close()
 
     def send_patch(self):
-        self.color = (*self.color, self.alpha)
+        self.color = (*self.color, self.alpha_spinbox.value())
         self.avg_color = (*self.avg_color, self.avg_alpha)
         avg_bool = self.avg_checkbox.checkState()
 
@@ -943,8 +1025,8 @@ class InsertTrajectoryFrame(pqtw.QFrame):
 
         def parse_custom_int():
             subjects = []
-            for i in range(self.using_list.count()):
-                subjects.append(self.using_list.item(i).text())
+            for item in self.loading_list.selectedItems():
+                subjects.append(item.text())
             return subjects
 
         subjects = []
@@ -978,8 +1060,15 @@ class InsertTrajectoryFrame(pqtw.QFrame):
             if n.isChecked():
                 normalisation = i 
 
+        label = self.label.text()
+        if label == "Trajectory":
+            new_id = self.popup.parent().visualizer._plot_id_counter
+            label = f"Trajectory_{new_id}"
+        elif label == "Quintile":
+            new_id = self.popup.parent().visualizer._plot_id_counter
+            label = f"Quintile_{new_id}"
         if not self.qa_check.isChecked():
-            new_pp = core.PlotParameters(subjects, self.color, 
+            new_pp = core.PlotParameters(label, subjects, self.color, 
                                          filter_types, 
                                          self.avg_color, avg_bool,
                                          transform,
@@ -1007,10 +1096,13 @@ class InsertTrajectoryFrame(pqtw.QFrame):
                 elif self.pp.average and self.pp.conf_int != new_pp.conf_int:
                     new_pp.plot_changed.append("average removed")
                     new_pp.plot_changed.append("average added")
+                if self.pp.label != new_pp.label:
+                    new_pp.plot_changed.append("label")
+                    new_pp.old_label = self.pp.label
                 self.popup.parent().edit_trajectory(new_pp, self.item)
 
         else:
-            qap = core.PlotParameters(subjects, self.color, 
+            qap = core.PlotParameters(label, subjects, self.color, 
                                       filter_types, 
                                       self.avg_color, avg_bool,
                                       transform,
@@ -1019,14 +1111,30 @@ class InsertTrajectoryFrame(pqtw.QFrame):
                                       self.custom_filter_frame.get_filters(),
                                       qap=True, n_bins=self.n_bins_spinbox.value(),
                                       sort_field=self.qa_sorting_drop.currentText(),
+                                      qa_alpha=self.alpha_spinbox.value(),
                                       )
-            self.popup.parent().add_trajectory(qap, True)
+            if self.pp is None:
+                self.popup.parent().add_trajectory(qap, True)
+            else:
+                if (self.pp.subjects != qap.subjects
+                        or self.pp.filter_types != qap.filter_types
+                        or self.pp.custom_filter_set != qap.custom_filter_set
+                        or self.pp.transform != qap.transform
+                        or self.pp.normalisation != qap.normalisation):
+                    qap.plot_changed.append("qap")
+                if self.pp.label != qap.label:
+                    qap.plot_changed.append("label")
+                    qap.old_label = self.pp.label
+                if self.pp.qa_alpha != qap.qa_alpha:
+                    qap.plot_changed.append("alpha")
+                self.popup.parent().edit_trajectory(qap, self.item)
         self.popup.close()
 
 
 class CustomFilterFrame(pqtw.QFrame):
-    def __init__(self, parent, possible_filters):
+    def __init__(self, parent, possible_filters, pp):
         super(CustomFilterFrame, self).__init__(parent)
+        self.pp = pp
         self.field_value_dict = possible_filters
         self.label_dropdowns = {}
         self.setLayout(pqtw.QVBoxLayout())
@@ -1042,6 +1150,8 @@ class CustomFilterFrame(pqtw.QFrame):
             frame.layout().addWidget(dropdown)
             self.label_dropdowns[field_name] = dropdown
             self.layout().addWidget(frame)
+            if pp:
+                dropdown.setCurrentText(pp.custom_filter_set[field_name])
         reset = pqtw.QPushButton("Reset", self)
         ok = pqtw.QPushButton("Ok", self)
         ok.clicked.connect(self.parent().hide)
@@ -1189,10 +1299,10 @@ class VisualFrame(pqtw.QFrame):
 
 
 class GUI:
-    def __init__(self, visualizer):
+    def __init__(self, data_path=None):
         if pqtw.QApplication.instance() is None:
             self._app = pqtw.QApplication(sys.argv)
-        self._window = GUIWindow(visualizer, self._app)
+        self._window = GUIWindow(self._app, data_path)
 
     def fps(self, fps):
         self._window.fps_signal.emit(1000 // fps)

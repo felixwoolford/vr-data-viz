@@ -3,6 +3,8 @@ from vispy import scene
 from vispy.scene import Line, Sphere, Box
 from vispy.visuals.transforms import STTransform
 from vispy.visuals.filters import WireframeFilter
+
+from vispy.scene.visuals import Text
 # import core
 # import numpy as np
 
@@ -142,6 +144,7 @@ class Viz(BaseVispy):
         super().__init__(widget, axes=False)
         self.plots = {} 
         self.targets = {}
+        # self.qa_legend()
 
     def add_plot(self, plot_id, points, color, width=2.0, order=1):
         traj = Line(points, color=color, width=width)
@@ -254,6 +257,21 @@ class Viz(BaseVispy):
                            # [0, 0, 1],
                            # [0, 1, 1],
                            # ])
+
+    # TODO TODO need a way of having multiple qa in one seen (colors, text)
+    def qa_legend(self, label, color, i, plot_id):
+        text = f'{label} Bin {i+1}'
+        t1 = Text(text, parent=self.canvas.scene, anchor_x="left", color=color)
+        # t1.pos = canvas.size[0] // 2, canvas.size[1] // 3
+        fs = self.canvas.size[1] // 60
+        t1.font_size = fs
+        t1.pos = (10, fs + (fs + (fs//2)) * i)
+        self.plots[plot_id].append(t1)
+
+        # t2 = Text('Text in viewbox (18 pt)', parent=self.view.scene, color='green',
+                  # rotation=30)
+        # t2.font_size = 18
+        # t2.pos = 0.5, 0.3
 
     def add_target(self, target_id, x, y, z, size, shape, color):
         if shape == "sphere":
