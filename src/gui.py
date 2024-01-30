@@ -1002,14 +1002,13 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         # self.buttons["add"].setEnabled(True)
         # self.fname_label.setText(self.fname)
     def export(self):
-        self.popup.parent().export(self.pp)
-        self.popup.close()
+        self.send_patch(export=True)
 
     def delete(self):
         self.popup.parent().edit_trajectory(None, self.item)
         self.popup.close()
 
-    def send_patch(self):
+    def send_patch(self, export=False):
         self.color = (*self.color, self.alpha_spinbox.value())
         self.avg_color = (*self.avg_color, self.avg_alpha)
         avg_bool = self.avg_checkbox.checkState()
@@ -1100,6 +1099,9 @@ class InsertTrajectoryFrame(pqtw.QFrame):
                     new_pp.plot_changed.append("label")
                     new_pp.old_label = self.pp.label
                 self.popup.parent().edit_trajectory(new_pp, self.item)
+                if export:
+                    print(new_pp.label)
+                    self.popup.parent().export(new_pp)
 
         else:
             qap = core.PlotParameters(label, subjects, self.color, 
@@ -1128,6 +1130,9 @@ class InsertTrajectoryFrame(pqtw.QFrame):
                 if self.pp.qa_alpha != qap.qa_alpha:
                     qap.plot_changed.append("alpha")
                 self.popup.parent().edit_trajectory(qap, self.item)
+                if export:
+                    self.popup.parent().export(qap)
+
         self.popup.close()
 
 

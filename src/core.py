@@ -446,6 +446,11 @@ class Visualizer():
                     print("missing data? TODO")
             # return new plot_id to replace in the gui
             return self.perform_analysis(pp)
+        # NOTE this has to come before average removed because of how data works
+        if "label" in pp.plot_changed:
+            self.data_for_export_set[pp.label] = self.data_for_export_set[pp.old_label]
+            self.data_for_export_set[pp.label]["label"] = pp.label
+            del self.data_for_export_set[pp.old_label]
         # NOTE this has to come before average added because of how changing conf int works
         if "average removed" in pp.plot_changed:
             self._viz.remove_average_from_plot(plot_id)
@@ -460,9 +465,6 @@ class Visualizer():
             self.change_plot_color(plot_id, pp.color)
         if "avg col" in pp.plot_changed:
             self.change_avg_color(plot_id, pp.avg_color)
-        if "label" in pp.plot_changed:
-            self.data_for_export_set[pp.label] = self.data_for_export_set[pp.old_label]
-            del self.data_for_export_set[pp.old_label]
         if "alpha" in pp.plot_changed:
             self.change_qap_alpha(plot_id, pp.qa_alpha)
         return plot_id
