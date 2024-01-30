@@ -1,5 +1,3 @@
-# TODO -- presets in second colomn of addpatch
-# -- second colour
 import sys
 
 import gui

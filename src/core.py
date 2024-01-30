@@ -1,19 +1,9 @@
-# TODO -- some thoroughout code, also:
-# check z-averaging
-# plot average only with/without CI
-# alpha sliders
-# thickness slider
-# better positioning for popups
-# export data
-# patch editor
-# target insertion
+# TODO
+# empty data handling
 # figsave
-# animator
-# line smoothing
-# directory structure flexibility
-# shading/shadows on background
-# ordered transparency
-# glow effect
+# selectable sets for qa
+# update legend
+# averageing qa
 
 import numpy as np
 import scipy.stats as st
@@ -23,8 +13,6 @@ from matplotlib.pyplot import color_sequences
 
 from visuals import Viz
 import data_reader
-
-# import pandas as pd
 
 
 class PlotParameters:
