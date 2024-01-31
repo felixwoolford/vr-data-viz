@@ -83,12 +83,12 @@ class GUIWindow(pqtw.QMainWindow):
 
     def open_browser(self, obj=0, path=None):
         dialog = pqtw.QFileDialog()
-        dialog.setFileMode(pqtw.QFileDialog.Directory)
-        dialog.setOption(pqtw.QFileDialog.ShowDirsOnly)
         if path is not None:
             fname = dialog.getExistingDirectory(self, "Select data base dir (eg. VR-S1)", path)
             if fname:
                 return fname + "/"
+        dialog.setFileMode(pqtw.QFileDialog.Directory)
+        dialog.setOption(pqtw.QFileDialog.ShowDirsOnly)
         fname = dialog.getExistingDirectory(self, "Select directory", self.visualizer.data_path)
         if fname:
             print("Selected", fname)
@@ -106,7 +106,9 @@ class GUIWindow(pqtw.QMainWindow):
         if not log:
             dialog.setFileMode(pqtw.QFileDialog.Directory)
             dialog.setOption(pqtw.QFileDialog.ShowDirsOnly)
-        fname = dialog.getExistingDirectory(self, "Select example", self.visualizer.data_path)
+            fname = dialog.getExistingDirectory(self, "Select example", self.visualizer.data_path)
+        else:
+            fname = dialog.getOpenFileName(self, "Select example", self.visualizer.data_path)[0]
         if fname:
             changed = self.visualizer.change_keyword(fname, log)
             if not changed:
@@ -1121,7 +1123,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
                                       sort_field=self.qa_sorting_drop.currentText(),
                                       qa_alpha=self.alpha_spinbox.value(),
                                       )
-            if self.pp is None:
+            if self.pp is None or clone:
                 self.popup.parent().add_trajectory(qap, True)
             else:
                 if (self.pp.subjects != qap.subjects
