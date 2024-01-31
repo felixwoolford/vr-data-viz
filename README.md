@@ -22,8 +22,7 @@ This section explains how to point the tool to the relavent data, if the data is
 
 By default, the data is expected to be located at *../data/VR-S1/*, relative to the
 main.py module.
-This will be confirmed on startup by selecting the VR-S1 directory in the selection menu. If the data is in a different location or you wish to use a different data set, navigate to the appropriate directory containing that contains the "Hand" data directory, or its equiavalent. This may be changed after startup 
-via **File**->**Base data directory...**
+This will be confirmed on startup by selecting the VR-S1 directory in the file dialog window that is presented. If the data is in a different location or you wish to use a different data set, navigate to the appropriate directory containing that contains the "Hand" data directory, or its equiavalent. This may be changed after startup via **File**->**Base data directory...**  
 
 The initial dialog window for selecting the data location can be skipped by running the module with an argument giving the path to the data, for example:  
 `python3 main.py ../data/VR-S1/`  
