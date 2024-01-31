@@ -33,10 +33,12 @@ subject directories, eg. P01, P02, etc
 The tool will select what subjects are available with the appropriate preprocessing and log info. By default, these are each those which have "fda_x" preprocessing. To select different preprocessing or logging, use the relevant option in the **File** menu and, for any subject, navigate to the appropriate directory of preprocessed data or logging info file. The tool will then use that file name to load to preprocessed data and logs for other other subjects with that data available.
 
 By default, object input files are expected to be located at *../Objects*, relative to the data base path.
-This may be changed via **File**->**Object directory...**
+This may be changed via   
+**File**->**Object directory...**
 
 By default, export output files are expected to be sent to *../Exports*, relative to the data base path.
-This may be changed via **File**->**Object directory...**
+This may be changed via  
+**File**->**Object directory...**
 
 # Use:
 ## ADDING PLOTS:
