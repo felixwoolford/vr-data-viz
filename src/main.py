@@ -1,13 +1,11 @@
 import sys
 
 import gui
-# import visuals
 
 if __name__ == "__main__":
     # v = core.Visualizer()
     data_path = sys.argv[1] if len(sys.argv) > 1 else None
     g = gui.GUI(data_path)
-    # TODO this doesn't need to be like this
     frame = g._window.mf.new_visual_frame(None)
     v = g._window.visualizer
     v.add_viz(frame)

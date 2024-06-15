@@ -79,6 +79,8 @@ class GUIWindow(pqtw.QMainWindow):
         separator.setSeparator(True)
         # Adding the separator to the menu
         mb.mfile.addAction(separator)
+        mb.mfile.addAction("Save").triggered.connect(self.visualizer.save)
+        mb.mfile.addAction(separator)
         mb.mfile.addAction("Quit").triggered.connect(self.close)
 
     def open_browser(self, obj=0, path=None):
@@ -279,11 +281,6 @@ class ControlFrame(pqtw.QFrame):
             if plot_id is None:
                 return
         item = pqtw.QListWidgetItem(pp.label)
-        # except:
-            # TODO -- proper exception and warning
-            # pass
-        # bgc = pqtg.QColor(*color)
-        # bgc.setRgbF(*color)
         item.setBackground(pqtg.QColor(int(pp.color[0]*255),
                                        int(pp.color[1]*255),
                                        int(pp.color[2]*255)))
@@ -383,239 +380,6 @@ class ControlFrame(pqtw.QFrame):
         self.patch_list.addItem(item)
 
 
-# class InsertPresetFrame(pqtw.QFrame):
-    # def __init__(self, parent):
-        # super(InsertPresetFrame, self).__init__(parent)
-        # self.popup = parent
-        # # self.hidden_trajectory_frame = InsertTargetFrame(parent)
-        # self.fname = self.popup.parent().visualizer.base_path
-        # self.fname_label = pqtw.QLabel(self.fname)
-        # self.color1 = (0.9, 0., 0.)
-        # self.color2 = (0.0, 0.8, 0.)
-        # self.avg_color = (1., 1., 1.)
-        # self.alpha = 0.3
-        # self.avg_alpha = 1.
-
-        # self.h_layout = pqtw.QHBoxLayout()
-        # # self.setLayout(self.g_layout)
-        # self.setLayout(self.h_layout)
-
-        # self.frame1 = pqtw.QFrame(self)
-        # self.frame1.setLayout(pqtw.QVBoxLayout())
-        # self.h_layout.addWidget(self.frame1)
-        # self.frame2 = pqtw.QFrame(self)
-        # self.frame2.setLayout(pqtw.QVBoxLayout())
-        # self.h_layout.addWidget(self.frame2)
-        # self.frame3 = pqtw.QFrame(self)
-        # self.frame3.setLayout(pqtw.QVBoxLayout())
-        # self.h_layout.addWidget(self.frame3)
-
-        # self.buttons = {}
-        # # self.buttons["get"] = pqtw.QPushButton("Get path...", self)
-        # self.buttons["add"] = pqtw.QPushButton("Add trajectory", self)
-        # # self.buttons["add"].setEnabled(False)
-        # self.buttons["cancel"] = pqtw.QPushButton("Cancel", self)
-        # self.buttons["color1"] = pqtw.QPushButton("Color 1", self)
-        # hex = '#%02x%02x%02x' % (int(self.color1[0]*255),
-                                 # int(self.color1[1]*255),
-                                 # int(self.color1[2]*255))
-        # self.buttons["color1"].setStyleSheet(f"background-color:{hex};")
-        # self.buttons["color1"].clicked.connect(lambda: self.get_color(1))
-
-        # self.buttons["color2"] = pqtw.QPushButton("Color 2", self)
-        # hex = '#%02x%02x%02x' % (int(self.color2[0]*255),
-                                 # int(self.color2[1]*255),
-                                 # int(self.color2[2]*255))
-        # self.buttons["color2"].setStyleSheet(f"background-color:{hex};")
-        # self.buttons["color2"].clicked.connect(lambda: self.get_color(2))
-        # # self.buttons["get"].clicked.connect(self.open_browser)
-        # self.buttons["add"].clicked.connect(self.send_preset)
-        # self.buttons["cancel"].clicked.connect(self.popup.close)
-        # # self.g_layout.addWidget(self.fname_label, 0, 0, 1, 2)
-        # # self.g_layout.addWidget(self.buttons["get"], 1, 0, 1, 2)
-        # # self.g_layout.addWidget(self.buttons["color"], 2, 0, 1, 2)
-        # # self.g_layout.addWidget(self.buttons["add"], 15, 0, 1, 1)
-        # # self.g_layout.addWidget(self.buttons["cancel"], 3, 1, 1, 1)
-
-        # selection_groupBox = pqtw.QGroupBox("Select subjects")
-        # s_radio1 = pqtw.QRadioButton("All")
-        # s_radio2 = pqtw.QRadioButton("Select")
-        # s_radio3 = pqtw.QRadioButton("Custom group")
-        # sgl = pqtw.QGridLayout(selection_groupBox)
-        # subject_drop = pqtw.QComboBox(selection_groupBox)
-        # subject_group_selector_dialog = pqtw.QDialog(self)
-        # subject_group_selector_dialog.setLayout(pqtw.QGridLayout())
-        # # TODO make the size of this dialog right
-        # # subject_group_selector_dialog.setSizePolicy(pqtw.QSizePolicy(
-            # # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
-        # loading_list = pqtw.QListWidget(self)
-        # loading_list.setDragDropMode(pqtw.QAbstractItemView.DragDrop)
-        # loading_list.setSelectionMode(pqtw.QAbstractItemView.ExtendedSelection)
-        # loading_list.setDefaultDropAction(pqtc.Qt.MoveAction)
-        # loading_list.setSortingEnabled(True)
-        # # loading_list.setSizePolicy(pqtw.QSizePolicy(
-            # # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
-        # self.using_list = pqtw.QListWidget(self)
-        # self.using_list.setDragDropMode(pqtw.QAbstractItemView.DragDrop)
-        # self.using_list.setSelectionMode(pqtw.QAbstractItemView.ExtendedSelection)
-        # self.using_list.setDefaultDropAction(pqtc.Qt.MoveAction)
-        # # self.using_list.setSizePolicy(pqtw.QSizePolicy(
-            # # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
-        # ll_label = pqtw.QLabel("Unused subjects", subject_group_selector_dialog)
-        # ul_label = pqtw.QLabel("Used subjects", subject_group_selector_dialog)
-        # subject_group_selector_dialog.layout().addWidget(ul_label, 0, 0, 1, 1)
-        # subject_group_selector_dialog.layout().addWidget(ll_label, 0, 1, 1, 1)
-        # subject_group_selector_dialog.layout().addWidget(self.using_list, 1, 0, 10, 1)
-        # subject_group_selector_dialog.layout().addWidget(loading_list, 1, 1, 10, 1)
-        # sgsd_ok_button = pqtw.QPushButton("Ok", subject_group_selector_dialog)
-        # sgsd_cancel_button = pqtw.QPushButton("Reset", subject_group_selector_dialog)
-        # subject_group_selector_dialog.layout().addWidget(sgsd_ok_button, 11, 0, 1, 1)
-        # subject_group_selector_dialog.layout().addWidget(sgsd_cancel_button, 11, 1, 1, 1)
-        # sgsd_ok_button.clicked.connect(subject_group_selector_dialog.hide)
-        # subject_group_select_button = pqtw.QPushButton("Create group", self)
-        # subject_group_select_button.clicked.connect(subject_group_selector_dialog.show)
-
-        # def reset_lists():
-            # for i in range(self.using_list.count()):
-                # loading_list.addItem(self.using_list.item(i).data(0))
-            # self.using_list.clear()
-        # sgsd_cancel_button.clicked.connect(reset_lists)
-
-        # for subject in sorted(self.popup.parent().visualizer.subjects.keys()):
-            # subject_drop.addItem(subject)
-            # loading_list.addItem(subject)
-        # # subject_text = pqtw.QLineEdit("eg. 1, 2, 8, 10-13")
-        # # self.subject_text = subject_text
-        # self.subject_drop = subject_drop
-        # self.selection = [s_radio1, s_radio2, s_radio3]
-
-        # subject_drop.setEnabled(False)
-        # subject_group_select_button.setEnabled(False)
-
-        # def disable_fields(r):
-            # if r == 1:
-                # subject_drop.setEnabled(False)
-                # subject_group_select_button.setEnabled(False)
-            # if r == 2:
-                # subject_drop.setEnabled(True)
-                # subject_group_select_button.setEnabled(False)
-            # if r == 3:
-                # subject_drop.setEnabled(False)
-                # subject_group_select_button.setEnabled(True)
-
-        # s_radio1.clicked.connect(lambda: disable_fields(1))
-        # s_radio2.clicked.connect(lambda: disable_fields(2))
-        # s_radio3.clicked.connect(lambda: disable_fields(3))
-        # s_radio1.setChecked(True)
-        # sgl.addWidget(s_radio1, 0, 0, 1, 4)
-        # sgl.addWidget(s_radio2, 1, 0, 1, 1)
-        # sgl.addWidget(subject_drop, 1, 1, 1, 3)
-        # sgl.addWidget(s_radio3, 2, 0, 1, 1)
-        # sgl.addWidget(subject_group_select_button, 2, 1, 1, 3)
-        # selection_groupBox.setLayout(sgl)
-
-        # self.buttons["avg_color"] = pqtw.QPushButton("Color for Average", self)
-        # hex = '#%02x%02x%02x' % (int(self.avg_color[0]*255),
-                                 # int(self.avg_color[1]*255),
-                                 # int(self.avg_color[2]*255))
-        # self.buttons["avg_color"].setStyleSheet(f"background-color:{hex};")
-        # self.buttons["avg_color"].clicked.connect(lambda: self.get_color(0, True))
-
-        # self.preset_list = pqtw.QListWidget(self)
-        # self.preset_list.addItem(pqtw.QListWidgetItem("preset1"))
-        # self.preset_list.setCurrentRow(0)
-        # self.preset_list.setSelectionMode(pqtw.QAbstractItemView.SingleSelection)
-
-        # self.frame1.layout().addWidget(self.fname_label)
-        # self.frame1.layout().addWidget(self.buttons["add"])
-
-        # self.frame2.layout().addWidget(self.fname_label)
-        # self.frame2.layout().addWidget(selection_groupBox)
-        # self.frame2.layout().addWidget(self.buttons["cancel"])
-
-        # self.frame3.layout().addWidget(self.buttons["color1"])
-        # self.frame3.layout().addWidget(self.buttons["color2"])
-        # self.frame3.layout().addWidget(self.buttons["avg_color"])
-
-    # def get_color(self, id, average=False):
-        # color_d = pqtw.QColorDialog(self)
-        # c = color_d.getColor(parent=self).getRgbF()[:-1]
-        # hex = '#%02x%02x%02x' % (int(c[0]*255),
-                                 # int(c[1]*255),
-                                 # int(c[2]*255))
-        # if not average:
-            # if id == 1:
-                # self.color1 = c 
-                # self.buttons["color1"].setStyleSheet(f"background-color:{hex};")
-            # else:
-                # self.color2 = c 
-                # self.buttons["color2"].setStyleSheet(f"background-color:{hex};")
-        # else:
-            # self.avg_color = c
-            # self.buttons["avg_color"].setStyleSheet(f"background-color:{hex};")
-
-    # def send_preset(self):
-        # preset_id = self.preset_list.currentItem().data(0)
-
-        # def parse_custom_int():
-            # subjects = []
-            # for i in range(self.using_list.count()):
-                # subjects.append(self.using_list.item(i).text())
-            # return subjects
-
-        # subjects = []
-        # if self.selection[2].isChecked():
-            # subjects = parse_custom_int()
-        # elif self.selection[1].isChecked():
-            # subjects = [self.subject_drop.currentText()]
-        # else:
-            # subjects = self.popup.parent().visualizer.subjects
-        # if not subjects:
-            # warning = pqtw.QMessageBox(pqtw.QMessageBox.Icon.Warning,
-                                       # "Empty subject list",
-                                       # "The subject list is empty!",
-                                       # parent=self)
-            # warning.setInformativeText(large_strings.no_subject_warning)
-            # warning.show()
-            # return
-
-        # if preset_id == "preset1":
-            # filter_set = {"congruency": "1"}
-            # self.send_patch(self.color1, self.alpha, self.avg_color, self.avg_alpha,
-                            # 1,
-                            # filter_set, subjects,
-                            # 1, 0,
-                            # )
-            # filter_set = {"congruency": "0"}
-            # self.send_patch(self.color2, self.alpha, self.avg_color, self.avg_alpha,
-                            # 1,
-                            # filter_set, subjects,
-                            # 2, 0,
-                            # )
-
-        # self.popup.close()
-
-    # def send_patch(self, color, alpha, avg_color, avg_alpha, 
-                   # avg_bool,
-                   # custom_filter_set, subjects,
-                   # transform, normalisation):
-        # color = (*color, alpha)
-        # avg_color = (*avg_color, avg_alpha)
-        # # avg_bool = self.avg_checkbox.checkState()
-
-        # filter_types = []
-
-        # pp = core.PlotParameters(subjects, color, 
-                                 # filter_types, 
-                                 # avg_color, avg_bool,
-                                 # transform,
-                                 # 0.95,
-                                 # normalisation,
-                                 # custom_filter_set
-                                 # )
-        # self.popup.parent().add_trajectory(pp)
-
-
 class InsertTrajectoryFrame(pqtw.QFrame):
     def __init__(self, parent, pp: core.PlotParameters = None, item=None):
         super(InsertTrajectoryFrame, self).__init__(parent)
@@ -663,9 +427,9 @@ class InsertTrajectoryFrame(pqtw.QFrame):
             self.buttons["clone"] = pqtw.QPushButton("Clone patch", self)
             self.buttons["clone"].clicked.connect(self.clone)
             self.buttons["export"].clicked.connect(self.export)
-            if not (pp.average or pp.qap):
-                self.buttons["export"].setEnabled(False)
-                self.buttons["export"].setText("no avg or qa to export")
+            # if not (pp.average or pp.qap):
+                # self.buttons["export"].setEnabled(False)
+                # self.buttons["export"].setText("no avg or qa to export")
 
         if pp:
             self.buttons["add"].setText("Edit trajectory")
@@ -684,11 +448,6 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         self.buttons["add"].clicked.connect(self.send_patch)
         self.buttons["cancel"].clicked.connect(self.popup.close)
         self.buttons["color"].clicked.connect(self.get_color)
-        # self.g_layout.addWidget(self.fname_label, 0, 0, 1, 2)
-        # self.g_layout.addWidget(self.buttons["get"], 1, 0, 1, 2)
-        # self.g_layout.addWidget(self.buttons["color"], 2, 0, 1, 2)
-        # self.g_layout.addWidget(self.buttons["add"], 15, 0, 1, 1)
-        # self.g_layout.addWidget(self.buttons["cancel"], 3, 1, 1, 1)
 
         selection_groupBox = pqtw.QGroupBox("Select subjects")
         s_radio1 = pqtw.QRadioButton("All")
@@ -698,22 +457,11 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         subject_drop = pqtw.QComboBox(selection_groupBox)
         subject_group_selector_dialog = pqtw.QDialog(self)
         subject_group_selector_dialog.setLayout(pqtw.QGridLayout())
-        # TODO make the size of this dialog right
-        # subject_group_selector_dialog.setSizePolicy(pqtw.QSizePolicy(
-            # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
         self.loading_list = pqtw.QListWidget(self)
         # self.loading_list.setDragDropMode(pqtw.QAbstractItemView.DragDrop)
         self.loading_list.setSelectionMode(pqtw.QAbstractItemView.ExtendedSelection)
         self.loading_list.setDefaultDropAction(pqtc.Qt.MoveAction)
         self.loading_list.setSortingEnabled(True)
-        # loading_list.setSizePolicy(pqtw.QSizePolicy(
-            # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
-        # self.using_list = pqtw.QListWidget(self)
-        # self.using_list.setDragDropMode(pqtw.QAbstractItemView.DragDrop)
-        # self.using_list.setSelectionMode(pqtw.QAbstractItemView.ExtendedSelection)
-        # self.using_list.setDefaultDropAction(pqtc.Qt.MoveAction)
-        # self.using_list.setSizePolicy(pqtw.QSizePolicy(
-            # pqtw.QSizePolicy.Policy.Expanding, pqtw.QSizePolicy.Policy.Expanding))
         ll_label = pqtw.QLabel("Select subjects", subject_group_selector_dialog)
         # ul_label = pqtw.QLabel("Used subjects", subject_group_selector_dialog)
         # subject_group_selector_dialog.layout().addWidget(ul_label, 0, 0, 1, 1)

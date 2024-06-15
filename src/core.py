@@ -1,10 +1,3 @@
-# TODO
-# empty data handling
-# figsave
-# selectable sets for qa
-# update legend
-# averageing qa
-
 import numpy as np
 import scipy.stats as st
 from scipy.interpolate import CubicSpline
@@ -59,7 +52,6 @@ def average_trajectories(points, conf_int, resample=0):
 
     points_all = np.empty((0, n_samples, 3))
     for i in range(0, len(all_i)-1, 2):
-        # TODO this and dependent code should be removed i think
         if resample:
             n_samples = resample
             points_all = np.concatenate((points_all,
@@ -72,8 +64,6 @@ def average_trajectories(points, conf_int, resample=0):
                                         axis=0)
 
     mean_points = np.mean(points_all, axis=0)
-    # TODO confidence variable??
-    # TODO TODO check with someone about scale, shape?
     confidence = st.t.interval(conf_int,
                                len(points_all)-1,
                                loc=mean_points,
@@ -81,49 +71,11 @@ def average_trajectories(points, conf_int, resample=0):
     return mean_points, confidence
 
 
-# def average_trajectories_with_resampling(points):
-    # def resample(points, n_samples):
-        # sampled_points = np.zeros((n_samples, 3))
-        # for i in range(3):
-            # sampled_points[:, i] = np.interp(np.linspace(0, len(points), n_samples),
-                                             # np.arange(0, len(points)),
-                                             # points[:, i])
-        # return sampled_points.reshape((1, n_samples, 3))
-
-    # # get length max length of a trajectory and indices of trajectories
-    # max_sample = 0
-    # all_i = [0]
-    # for i in range(len(points)):
-        # # print(points[i, :])
-        # if np.all(np.isnan(points[i, :])):
-            # dist = i - all_i[-1]
-            # if dist > max_sample:
-                # max_sample = dist
-            # all_i += [i, i+1]
-    # assert all_i[-1] == len(points)
-
-    # # resample and combine
-    # points_all = np.empty((0, max_sample, 3))
-    # for i in range(0, len(all_i)-1, 2):
-        # points_all = np.concatenate((points_all,
-                                     # resample(points[all_i[i]:all_i[i+1]], max_sample)),
-                                    # axis=0)
-
-    # mean_points = np.mean(points_all, axis=0)
-    # # TODO confidence variable??
-    # # TODO TODO check with someone about scale, shape?
-    # confidence = st.t.interval(0.95,
-                               # len(points_all)-1,
-                               # loc=mean_points,
-                               # scale=st.sem(points_all))
-    # return mean_points, confidence
-
 
 def get_qa_trajs(quintiled_dframes, path, transform):
     lines_set = []
     for quintile in quintiled_dframes:
         lines = get_trajs(quintile, path, transform=transform)
-        # TODO magic no for conf int. Don't think we need to worry
         average_points, confidence = average_trajectories(lines, 0.95)
         lines_set.append(np.concatenate((np.empty((0, 3)), 
                                          average_points,
@@ -146,22 +98,15 @@ def get_trajs(csv, path, filter=None, transform=None, resample=0):
         if filter is None or filter[i]:
             points = data_reader.get_traj_data(traj_fns[i])
             points = np.array(points).T
-            # TODO resampling is a vanity thing now, resample = n_samples, 0 means don't
             if resample:
                 points = cubic_resample(points, resample) 
             if transform in [Transform.LR, Transform.RL] and transform_filter[transform_i]:
                 points[:, 0] *= -1
-            # TODO -- can remove permanently
-            # if q is not None and qa_normalisation:
-                # special_qa_transformation(points, q, qa_width)
 
             points_all = np.concatenate((points_all,
                                          points,
                                          np.array([[np.nan, np.nan, np.nan]])))
 
-    # TODO -- can remove permanently
-    # if q is not None and not qa_normalisation:
-        # special_qa_transformation(points_all, q, qa_width)
     return points_all
 
 
@@ -178,7 +123,6 @@ def select_by_location(results, left=True):
     return mask
 
 
-# TODO could make this the standard for all
 def select_by_custom(results, field_value_dict):
     mask = None
     for field_name, valid_values in field_value_dict.items():
@@ -290,7 +234,7 @@ class Visualizer():
         self.data_path = data_path
         self.base_path = self.data_path + "Hand/"
         self.object_base_path = self.data_path + "Objects/"
-        self.export_base_path = self.data_path + "Exports/"
+        self.export_base_path = self.data_path + "Export/"
         self.pp_keyword = "fda_x"
         self.log_keyword = "fda_x"
         self.subjects, self.logs = data_reader.get_subjects(self.base_path, 
@@ -302,8 +246,12 @@ class Visualizer():
         self._target_id_counter = 0
         self.pp_set = {}
         self.data_for_export_set = {}
+        self.data_for_export_set_basic = {}
         self.cseqs = list(color_sequences.keys())
         self.color_seq = "Set2"
+
+    def save(self, fname="test.png", height=10, dpi=300, width=None):
+        self._viz.save(fname, height, dpi, width)
 
     def add_viz(self, widget):
         self._viz = Viz(widget)
@@ -367,7 +315,6 @@ class Visualizer():
         if FilterType.RIGHT in filter_types:
             masks.append(select_by_location(csv, False))
         masks.append(select_by_custom(csv, custom_filter_set))
-        # TODO hardcoding
         masks.append(get_block1_filter(csv))
 
         mask = np.all(np.array(masks), axis=0)
@@ -375,6 +322,7 @@ class Visualizer():
 
     def add_plot(self, pp: PlotParameters):
         lines_all = np.empty((0, 3))
+        filter_dict = {}
 
         for subject in pp.subjects:
             # TODO this assumes the curent dir structure
@@ -394,12 +342,23 @@ class Visualizer():
 
             lines_all = np.concatenate((lines_all,
                                         lines))
+            filter_dict[subject] = [i for i, x in enumerate(filter) if x]
 
         if lines_all.size == 0:
             print("Selected filters removed all subjects")
             return None
         if pp.normalisation == 2:
             normalise_z(lines_all, 2)
+
+        self.data_for_export_set_basic[pp.label] = {"label": pp.label,
+                                                    "type": "subject trajectory",
+                                                    "subjects": pp.subjects,
+                                                    "filters": pp.filter_types,
+                                                    "extra_filters": pp.custom_filter_set,
+                                                    "filtered_trials": filter_dict,
+                                                    "transformations": pp.transform,
+                                                    "normalisation": pp.normalisation
+                                                    }
 
         self._plot_id_counter += 1
         self._viz.add_plot(self._plot_id_counter, lines_all, pp.color, order=3)
@@ -416,7 +375,14 @@ class Visualizer():
         return self._plot_id_counter
 
     def export_data(self, label):
-        data_reader.export_qa_data(self.data_for_export_set[label], self.export_base_path)
+        try:
+            data_reader.export_qa_data(self.data_for_export_set_basic[label], self.export_base_path)
+        except KeyError:
+            print("No basic data for", label)
+        try:
+            data_reader.export_qa_data(self.data_for_export_set[label], self.export_base_path)
+        except KeyError:
+            print("No Average or QA data for", label)
 
     def edit_plot(self, pp: PlotParameters, plot_id):
         self.pp_set[plot_id] = pp
@@ -430,7 +396,7 @@ class Visualizer():
                 except AttributeError:
                     pass
                 except KeyError:
-                    print("missing data? TODO")
+                    pass
             # return new plot_id to replace in the gui
             return self.add_plot(pp)
         if "qap" in pp.plot_changed:
@@ -475,8 +441,6 @@ class Visualizer():
         for cline in confidence:
             self._viz.add_plot(plot_id, cline, pp.avg_color, width=7.)
         self._viz.add_confidence_ribbon(plot_id, confidence, color=pp.avg_color)
-        # TODO extend this with what is needed
-        # TODO if qa gets sent into here, we need to check for it
         self.data_for_export_set[pp.label] = {"label": pp.label,
                                               "type": "average trajectory",
                                               "subjects": pp.subjects,
@@ -490,6 +454,20 @@ class Visualizer():
                                               }
 
     def remove_plot(self, plot_id):
+        try:
+            label = self.pp_set[plot_id].label
+            del self.data_for_export_set_basic[label]
+        except AttributeError:
+            pass
+        except KeyError:
+            pass
+        try:
+            old_label = self.pp_set[plot_id].old_label
+            del self.data_for_export_set_basic[old_label]
+        except AttributeError:
+            pass
+        except KeyError:
+            pass
         self._viz.remove_plot(plot_id)
         self._viz.recenter_camera()
 
@@ -505,12 +483,9 @@ class Visualizer():
             filter = self.get_filters(base_csv, qap.filter_types, qap.custom_filter_set)
 
             if not np.any(filter):
-                print("TODO -- manage what happens when invalid filter set applied")
                 return
 
             # sort
-            # TODO -- is numeric always wanted -- currently is always?
-            # print(subject)
             base_csv[qap.sort_field] = base_csv[qap.sort_field].astype(float)
             csv = base_csv[filter].sort_values(qap.sort_field)
 
@@ -542,7 +517,6 @@ class Visualizer():
             for i, line in enumerate(lines_set):
                 lines_all[i] = np.concatenate((lines_all[i], line))
 
-        # TODO need total normalisation
 
         self._plot_id_counter += 1
         self.pp_set[self._plot_id_counter] = qap
@@ -575,9 +549,7 @@ class Visualizer():
             average_set = []
             for i, lines in enumerate(lines_all):
                 color = color_set[i % len(color_set)]
-                color2 = (*color, 0.2)  # TODO MAGIC NUMVER
-                # TODO probably some refactoring with plot traj possible
-                # TODO remove that hardcode like it is in the other. Probably bring pp over
+                color2 = (*color, 0.2)  # TODO MAGIC NUMBER
                 average_points, confidence = average_trajectories(lines, qap.conf_int)
                 average_set.append((average_points, confidence))
             for average_points, confidence in average_set:
@@ -610,17 +582,9 @@ class Visualizer():
         for i, line in enumerate(self._viz.plots[plot_id]):
             if "_line_visual" in vars(line):
                 color = color_set[i % len(color_set)]
-                color = (*color, alpha)  # TODO MAGIC NUMVER
+                color = (*color, alpha) 
                 # line.color = color
                 line.set_data(color=color)
-                # i += 1
-        # i = 0
-        # for line in self._viz.plots[plot_id]:
-            # if "_line_visual" not in vars(line):
-                # color = color_set[i % len(color_set)]
-                # color = (*color, alpha)  # TODO MAGIC NUMVER
-                # # line.color = color
-                # line.color = color
                 # i += 1
 
     def add_target(self, x, y, z, size, shape, color):

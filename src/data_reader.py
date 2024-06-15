@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 
+from datetime import datetime
 import pandas as pd
 # p_path = "../data/VR-S1/Hand/P01/S001/"
 # results_fname = p_path + "trial_results.csv"
@@ -136,9 +137,30 @@ def get_subjects(base_path, pp_keyword, log_keyword, all=False):
 
 
 def export_qa_data(data, output_path):
-    path = output_path + data["label"] + "/"
+    date_time = datetime.now().strftime("_%Y_%m_%d_%H_%M")
+    path = output_path + data["label"] + date_time + "/"
     os.makedirs(Path(path), exist_ok=True)
-    if data["type"] == "average trajectory":
+    if data["type"] == "subject trajectory":
+        ft = data["filtered_trials"]
+        print(ft.items())
+        print(max([len(trials) for sub, trials in ft.items()]), "ll")
+        df_trials = pd.DataFrame(index=list(range(1, max([len(trials) for sub, trials in ft.items()])+1)))
+        for subject, trials in ft.items():
+            df_trials = df_trials.assign(**{str(subject): pd.Series(trials)})
+        df_trials.to_csv(path+f"{data['label']}_trials_per_subject.csv")
+        info = open(path+f"{data['label']}_info.csv", "w")
+        # info.write("subjects, " + ", ".join(sorted(data["subjects"])) + "\n")
+        ftypes = {1: "congruent only", 2: "incongruent only", 4: "following congruent only",
+                  5: "following incongruent only", 7: "left target only", 8: "right target only"}
+        info.write(f"basic_filters, {','.join([ftypes[i] for i in data['filters']])}\n")
+        info.write(f"extra_filters, {data['extra_filters']}\n")
+        # ttypes = {0: "none", 1: "to right", 2: "to left"}
+        # info.write(f"transformation, {ttypes[data['transformations']]}\n")
+        ntypes = {0: "none", 1: "by subject", 2: "total"}
+        info.write(f"normalisation, {ntypes[data['normalisation']]}\n")
+        info.close()
+
+    elif data["type"] == "average trajectory":
         df_pos = pd.DataFrame(index=list(range(1, len(data["average"])+1)))
         df_pos = df_pos.assign(pos_x=data["average"][:, 0])
         df_pos = df_pos.assign(pos_y=data["average"][:, 2])

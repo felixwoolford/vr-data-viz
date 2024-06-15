@@ -3,8 +3,14 @@ from vispy import scene
 from vispy.scene import Line, Sphere, Box
 from vispy.visuals.transforms import STTransform
 from vispy.visuals.filters import WireframeFilter
+from vispy.geometry import create_box
 
 from vispy.scene.visuals import Text
+
+import vispy.io as io
+
+
+from PIL import Image
 # import core
 # import numpy as np
 
@@ -15,7 +21,8 @@ class BaseVispy:
 
     def __init__(self, widget, axes=False, range_=None, interactive=True, aspect=None, **kwargs):
         self.canvas = scene.SceneCanvas(
-            keys="interactive", parent=widget, show=True, bgcolor="#000000"
+            keys="interactive", parent=widget, show=True, bgcolor="#FFFFFF", dpi=100,
+            # keys="interactive", show=False, bgcolor="#000000"
         )
         if axes:
             self.init_axes(**kwargs)
@@ -41,57 +48,94 @@ class BaseVispy:
         pass
 
     def render_background(self):
+
+        c = 5 
+        s = 10
+
+        vertices, faces, outline = create_box(width=c, height=c, depth=c,
+                                              width_segments=s,
+                                              height_segments=s,
+                                              depth_segments=s)
+
+
+        # colors = vertices['color'] * np.array([1,0,0,1])
+        colors = vertices['color']
+        for color in colors:
+            color[0] = (color[1] + 3) / 4.8
+            color[1:3] = color[0]
+            
+        self.box = scene.visuals.Box(width=c, height=c, depth=c,
+                                     width_segments=s,
+                                     height_segments=s,
+                                     depth_segments=s,
+                                     # color=(0.9,0.9,0.9,1),
+                                     vertex_colors=colors,
+                                     edge_color=(0.5,0.5,0.5,1),
+                                     parent=self.view.scene)
+
+
         points = np.array([[0, 0, 0],
                            [0, 1, 0],
                            [1, 0, 0],
                            [1, 1, 0],
                            ])
         faces = np.array([(i, i+1, i+2) for i in range(0, len(points)-2)])
-        v_colors = np.array([[0.9, 0.9, 0.9, 0.3],
-                            [0.6, 0.6, 0.6, 0.3],
+        v_colors = np.array([
                             [0.6, 0.6, 0.6, 0.3],
                             [0.3, 0.3, 0.3, 0.3],
-                            ])
+                            [0.9, 0.9, 0.9, 0.3],
+                            [0.6, 0.6, 0.6, 0.3],
+                             ])
 
                 # (len(points), 4))
         # v_colors[:, 3] = 0.1
-        #TODO I should be transforming one mesh!
-        # TODO TRANSPARENCY!!
-        self.bg_xy = scene.visuals.Mesh(points, 
-                                    faces, 
-                                    vertex_colors=v_colors,
-                                    shading=None,
-                                        parent=self.view.scene,
-                                        )
+        # self.bg_xy = scene.visuals.Mesh(points, 
+                                    # faces, 
+                                    # vertex_colors=v_colors,
+                                    # shading=None,
+                                        
+                                        # parent=self.view.scene,
+                                        # )
         points = np.array([[0, 1, 0],
                            [0, 1, 1],
                            [1, 1, 0],
                            [1, 1, 1],
                            ])
-        self.bg_xz = scene.visuals.Mesh(points, 
-                                    faces, 
-                                    vertex_colors=v_colors,
-                                    shading=None,
-                                        parent=self.view.scene,
-                                        )
+        v_colors = np.array([
+                            [0.3, 0.3, 0.3, 0.3],
+                            [0.6, 0.6, 0.6, 0.3],
+                            [0.6, 0.6, 0.6, 0.3],
+                            [0.9, 0.9, 0.9, 0.3],
+                            ])
+        # self.bg_xz = scene.visuals.Mesh(points, 
+                                    # faces, 
+                                    # vertex_colors=v_colors,
+                                    # shading=None,
+                                        # parent=self.view.scene,
+                                        # )
         points = np.array([[0, 0, 0],
                            [0, 1, 0],
                            [0, 0, 1],
                            [0, 1, 1],
                            ])
-        self.bg_yz = scene.visuals.Mesh(points, 
-                                    faces, 
-                                    vertex_colors=v_colors,
-                                    shading=None,
-                                        parent=self.view.scene,
-                                        )
-        self.bg_xy.attach(WireframeFilter(width=1))
-        self.bg_xy.set_gl_state("translucent", depth_test=False)
-        self.bg_xz.attach(WireframeFilter(width=1))
-        self.bg_xz.set_gl_state("translucent", depth_test=False)
-        self.bg_yz.attach(WireframeFilter(width=1))
+        v_colors = np.array([[0.6, 0.6, 0.6, 0.3],
+                            [0.3, 0.3, 0.3, 0.3],
+                            [0.9, 0.9, 0.9, 0.3],
+                            [0.6, 0.6, 0.6, 0.3],
+                            ])
+        # self.bg_yz = scene.visuals.Mesh(points, 
+                                    # faces, 
+                                    # vertex_colors=v_colors,
+                                    # shading=None,
+                                        # parent=self.view.scene,
+                                        # )
+        # self.bg_xy.attach(WireframeFilter(width=1))
+        # self.bg_xy.set_gl_state("translucent", depth_test=False)
+        # self.bg_xz.attach(WireframeFilter(width=1))
+        # self.bg_xz.set_gl_state("translucent", depth_test=False)
+        # self.bg_yz.attach(WireframeFilter(width=1))
 
-        self.bg_yz.set_gl_state("translucent", depth_test=False)
+        # self.bg_yz.set_gl_state("translucent", depth_test=False)
 
     def init_axes(self, **kwargs):
         self.grid = self.canvas.central_widget.add_grid(margin=10)
@@ -138,6 +182,30 @@ class BaseVispy:
     def reset(self):
         raise NotImplementedError
 
+    def save(self, fname, height, dpi, width):
+        # new_canvas = scene.SceneCanvas(size=(2000,2000), bgcolor="#FFFFFF")
+        # new_canvas.central_widget.view = self.view
+        self.canvas.dpi=dpi
+        size = self.canvas.size
+        ratio = size[0] / size[1]
+        hpx = int(height * dpi)
+        if width is not None:
+            wpx = width
+        else:
+            wpx = int(hpx * ratio)
+        self.canvas.size = (wpx, hpx)
+        # arr = self.view.camera.canvas.render(region=(0,0,400,400), alpha=False)
+        # arr = self.canvas.render(size=(100,100), alpha=False)
+        arr = self.canvas.render(alpha=False)
+        # arr = new_canvas.render(alpha=False)
+        # io.write_png("test2.png", arr)
+        # f = open(fname, "wb")
+        # f.close()
+        fname = "tst.png"
+        io.write_png(fname, arr)
+        self.canvas.size = size
+        self.canvas.dpi=100
+
 
 class Viz(BaseVispy):
     def __init__(self, widget):
@@ -163,7 +231,6 @@ class Viz(BaseVispy):
         points = np.array(list(zip(points[0], points[1]))).reshape(int(points[0].size*2/3), 3)
         # faces = np.array([(i, i+1, i+3, i+2) for i in range(0, len(points)-3, 2)])
         faces = np.array([(i, i+1, i+2) for i in range(0, len(points)-2)])
-        # TODO inexplicable error occured here where color appeared to be 5 values...
         v_colors = np.ones((len(points), 4)) * color
         v_colors[:, 3] *= 0.4
         ribbon = scene.visuals.Mesh(points, 
@@ -234,38 +301,52 @@ class Viz(BaseVispy):
                            [absmaxs[0], absmaxs[1], absmins[2]],
                            ])
         faces = np.array([(i, i+1, i+2) for i in range(0, len(points)-2)])
-        v_colors = np.array([[0.9, 0.9, 0.9, 0.3],
-                             [0.6, 0.6, 0.6, 0.3],
-                             [0.6, 0.6, 0.6, 0.3],
-                             [0.3, 0.3, 0.3, 0.3]
+        v_colors = np.array([
+                            [0.6, 0.6, 0.6, 0.3],
+                            [0.3, 0.3, 0.3, 0.3],
+                            [0.9, 0.9, 0.9, 0.3],
+                            [0.6, 0.6, 0.6, 0.3],
                              ])
-        self.bg_xy.set_data(points, faces, vertex_colors=v_colors)
+        # self.bg_xy.set_data(points, faces, vertex_colors=v_colors)
         points = np.array([[absmins[0], absmaxs[1], absmins[2]],
                            [absmins[0], absmaxs[1], absmaxs[2]],
                            [absmaxs[0], absmaxs[1], absmins[2]],
                            [absmaxs[0], absmaxs[1], absmaxs[2]],
                            ])
-        self.bg_xz.set_data(points, faces, vertex_colors=v_colors)
+        v_colors = np.array([
+                            [0.3, 0.3, 0.3, 0.3],
+                            [0.6, 0.6, 0.6, 0.3],
+                            [0.6, 0.6, 0.6, 0.3],
+                            [0.9, 0.9, 0.9, 0.3],
+                            ])
+        # self.bg_xz.set_data(points, faces, vertex_colors=v_colors)
         points = np.array([[absmins[0], absmins[1], absmins[2]],
                            [absmins[0], absmaxs[1], absmins[2]],
                            [absmins[0], absmins[1], absmaxs[2]],
                            [absmins[0], absmaxs[1], absmaxs[2]],
                            ])
-        self.bg_yz.set_data(points, faces, vertex_colors=v_colors)
+        v_colors = np.array([[0.6, 0.6, 0.6, 0.3],
+                            [0.3, 0.3, 0.3, 0.3],
+                            [0.9, 0.9, 0.9, 0.3],
+                            [0.6, 0.6, 0.6, 0.3],
+                            ])
+        # self.bg_yz.set_data(points, faces, vertex_colors=v_colors)
         # points = np.array([[0, 0, 0],
                            # [0, 1, 0],
                            # [0, 0, 1],
                            # [0, 1, 1],
                            # ])
 
-    # TODO TODO need a way of having multiple qa in one seen (colors, text)
     def qa_legend(self, label, color, i, plot_id):
         text = f'{label} Bin {i+1}'
         t1 = Text(text, parent=self.canvas.scene, anchor_x="left", color=color)
         # t1.pos = canvas.size[0] // 2, canvas.size[1] // 3
-        fs = self.canvas.size[1] // 60
+        # fs = self.canvas.size[1] // 60
+        # t1.font_size = fs
+        # t1.pos = (10, fs + (fs + (fs//2)) * i)
+        fs = 30
         t1.font_size = fs
-        t1.pos = (10, fs + (fs + (fs//2)) * i)
+        t1.pos = (10, fs * 2 + (fs + (fs * 4)) * i)
         self.plots[plot_id].append(t1)
 
         # t2 = Text('Text in viewbox (18 pt)', parent=self.view.scene, color='green',
