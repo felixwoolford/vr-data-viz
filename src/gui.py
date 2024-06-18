@@ -23,7 +23,8 @@ class GUIWindow(pqtw.QMainWindow):
     # swap_visual_signal = pqtc.pyqtSignal(int, int, int)
 
     def __init__(self, _app, data_path=None):
-        super().__init__(None, pqtc.Qt.WindowStaysOnTopHint)
+        # super().__init__(None, pqtc.Qt.WindowStaysOnTopHint)
+        super().__init__(None)
         self._app = _app
         if data_path is None:
             data_path = self.open_browser(path="../data/")
