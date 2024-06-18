@@ -9,8 +9,9 @@ import data_reader
 
 
 class PlotParameters:
-    def __init__(self, label, subjects, color, filter_types, avg_color,
-                 avg_bool, transform, conf_int, normalisation, custom_filter_set,
+    def __init__(self, label, subjects, color, filter_types, avg_color, avg_bool,
+                 avg_color2, avg_bool2, transform, conf_int, normalisation, custom_filter_set,
+                 ps_conf_ribbons=False, lines_for_split_averages=None,
                  qap=False, n_bins=5, sort_field=None, qa_alpha=0.8):
         self.label = label
         self.subjects = subjects
@@ -18,6 +19,8 @@ class PlotParameters:
         self.filter_types = filter_types
         self.avg_color = avg_color
         self.average = avg_bool
+        self.avg_color2 = avg_color2
+        self.avg_bool2 = avg_bool2
         self.transform = transform
         self.conf_int = conf_int
         self.normalisation = normalisation
@@ -27,6 +30,8 @@ class PlotParameters:
         self.n_bins = n_bins
         self.sort_field = sort_field
         self.qa_alpha = qa_alpha
+        self.lines_for_split_averages = lines_for_split_averages
+        self.ps_conf_ribbons = ps_conf_ribbons 
 
 
 def cubic_resample(points, n_samples):
@@ -322,6 +327,7 @@ class Visualizer():
     def add_plot(self, pp: PlotParameters):
         lines_all = np.empty((0, 3))
         filter_dict = {}
+        lines_for_split_averages = []
 
         for subject in pp.subjects:
             # TODO this assumes the curent dir structure
@@ -339,6 +345,7 @@ class Visualizer():
             if pp.normalisation == 1:
                 normalise_z(lines, 1)
 
+            lines_for_split_averages.append(lines)
             lines_all = np.concatenate((lines_all,
                                         lines))
             filter_dict[subject] = [i for i, x in enumerate(filter) if x]
@@ -361,17 +368,31 @@ class Visualizer():
 
         self._plot_id_counter += 1
         self._viz.add_plot(self._plot_id_counter, lines_all, pp.color, order=3)
-        if pp.average:
-            self.add_average(pp, self._plot_id_counter, lines_all)
+        if pp.average or pp.avg_bool2:
+            self.add_average(pp, self._plot_id_counter, lines_all, lines_for_split_averages)
 
         # self._viz.add_plot(self._plot_id_counter, lines_all, color, order=3,
                            # average_points=average_points)
 
         self._viz.recenter_camera()
 
+        pp.lines_for_split_averages = lines_for_split_averages
         self.pp_set[self._plot_id_counter] = pp
 
         return self._plot_id_counter
+
+    def get_per_subject_avg(self, lines_for_split_averages, conf_int):
+        averages = []
+        confs = []
+        points_all = np.empty((0, 3))
+        for lines in lines_for_split_averages:
+            points, confidence = average_trajectories(lines, conf_int)
+            averages.append(points)
+            confs.append(confidence)
+            points_all = np.concatenate((points_all,
+                                         points,
+                                         np.array([[np.nan, np.nan, np.nan]])))
+        return points_all, confs
 
     def export_data(self, label):
         try:
@@ -421,36 +442,51 @@ class Visualizer():
             self._viz.remove_average_from_plot(plot_id)
             try:
                 del self.data_for_export_set[pp.label]
-            except KeyError:
                 del self.data_for_export_set[pp.old_label]
+            except AttributeError:
+                pass
+            except KeyError:
+                pass
         if "average added" in pp.plot_changed:
             lines_all = self._viz.plots[plot_id][0].pos
-            self.add_average(pp, plot_id, lines_all)
+            self.add_average(pp, plot_id, lines_all, pp.lines_for_split_averages)
         if "col" in pp.plot_changed:
             self.change_plot_color(plot_id, pp.color)
         if "avg col" in pp.plot_changed:
             self.change_avg_color(plot_id, pp.avg_color)
+        if "avg col2" in pp.plot_changed:
+            self.change_avg_color(plot_id, pp.avg_color2, c2=True)
         if "alpha" in pp.plot_changed:
             self.change_qap_alpha(plot_id, pp.qa_alpha)
         return plot_id
 
-    def add_average(self, pp, plot_id, lines):
-        average_points, confidence = average_trajectories(lines, pp.conf_int)
-        self._viz.add_plot(plot_id, average_points, pp.avg_color, width=14.)
-        for cline in confidence:
-            self._viz.add_plot(plot_id, cline, pp.avg_color, width=7.)
-        self._viz.add_confidence_ribbon(plot_id, confidence, color=pp.avg_color)
-        self.data_for_export_set[pp.label] = {"label": pp.label,
-                                              "type": "average trajectory",
-                                              "subjects": pp.subjects,
-                                              "average": average_points,
-                                              "confidence": confidence,
-                                              "confidence interval": pp.conf_int,
-                                              "filters": pp.filter_types,
-                                              "extra_filters": pp.custom_filter_set,
-                                              "transformations": pp.transform,
-                                              "normalisation": pp.normalisation
-                                              }
+    def add_average(self, pp, plot_id, lines_all, lines_for_split_averages):
+        if pp.avg_bool2:
+            lines_all, ps_conf = self.get_per_subject_avg(lines_for_split_averages, pp.conf_int)
+            self._viz.add_plot(self._plot_id_counter, lines_all, pp.avg_color2, order=2,
+                               width=10)
+            if pp.ps_conf_ribbons:
+                for conf in ps_conf:
+                    for cline in conf:
+                        self._viz.add_plot(self._plot_id_counter, cline, pp.avg_color2, width=4.)
+                    self._viz.add_confidence_ribbon(self._plot_id_counter, conf, color=pp.avg_color2)
+        if pp.average:
+            average_points, confidence = average_trajectories(lines_all, pp.conf_int)
+            self._viz.add_plot(plot_id, average_points, pp.avg_color, width=14.)
+            for cline in confidence:
+                self._viz.add_plot(plot_id, cline, pp.avg_color, width=7.)
+            self._viz.add_confidence_ribbon(plot_id, confidence, color=pp.avg_color)
+            self.data_for_export_set[pp.label] = {"label": pp.label,
+                                                  "type": "average trajectory",
+                                                  "subjects": pp.subjects,
+                                                  "average": average_points,
+                                                  "confidence": confidence,
+                                                  "confidence interval": pp.conf_int,
+                                                  "filters": pp.filter_types,
+                                                  "extra_filters": pp.custom_filter_set,
+                                                  "transformations": pp.transform,
+                                                  "normalisation": pp.normalisation
+                                                  }
 
     def remove_plot(self, plot_id):
         try:
@@ -573,8 +609,12 @@ class Visualizer():
     def change_plot_color(self, plot_id, color):
         self._viz.plots[plot_id][0].set_data(color=color)
 
-    def change_avg_color(self, plot_id, color):
-        for plot in self._viz.plots[plot_id][1:]:
+    def change_avg_color(self, plot_id, color, c2=False):
+        if c2:
+            plots = self._viz.plots[plot_id][1:-4]
+        else:
+            plots = self._viz.plots[plot_id][-4:]
+        for plot in plots:
             print(str(type(plot)), "<class 'vispy.scene.visuals.Line'>")
             print(str(type(plot)) == "<class 'vispy.scene.visuals.Line'>")
             if str(type(plot)) == "<class 'vispy.scene.visuals.Line'>":

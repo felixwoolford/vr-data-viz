@@ -374,7 +374,7 @@ class ControlFrame(pqtw.QFrame):
         popup.show()
         popup.setLayout(pqtw.QHBoxLayout())
         del_button = pqtw.QPushButton("Delete", self)
-        col_button = pqtw.QPushButton("Color", self)
+        col_button = pqtw.QPushButton("Colour", self)
         change_button = pqtw.QPushButton("Commit Changes", self)
         if type(self.change_color) is str:
             color = self.change_color
@@ -445,9 +445,11 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         # TODO cycle this
         self.color = pp.color[:3] if pp else (0.9, 0., 0.)
         self.avg_color = pp.avg_color[:3] if pp else (1., 1., 1.)
+        self.avg_color2 = pp.avg_color2[:3] if pp else (0., 0., 0.)
         # TODO variabel
         self.alpha = pp.color[3] if pp else 0.3
-        self.avg_alpha = 1.
+        self.avg_alpha = pp.avg_color[3] if pp else 0.9
+        self.avg_alpha2 = pp.avg_color2[3] if pp else 0.8
 
         # self.g_layout = pqtw.QGridLayout()
         self.h_layout = pqtw.QHBoxLayout()
@@ -661,16 +663,33 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         fd_button = pqtw.QPushButton("Set custom criteria", self)
         fd_button.clicked.connect(filter_dialog.show)
 
-        self.buttons["avg_color"] = pqtw.QPushButton("Color for Average", self)
+        self.buttons["avg_color"] = pqtw.QPushButton("Colour for Avg", self)
         hex = '#%02x%02x%02x' % (int(self.avg_color[0]*255),
                                  int(self.avg_color[1]*255),
                                  int(self.avg_color[2]*255))
         self.buttons["avg_color"].setStyleSheet(f"background-color:{hex};")
-        self.buttons["avg_color"].clicked.connect(lambda: self.get_color(True))
+        self.buttons["avg_color"].clicked.connect(lambda: self.get_color(1))
+        self.buttons["avg_color2"] = pqtw.QPushButton("Colour for Subject Avg", self)
+        hex = '#%02x%02x%02x' % (int(self.avg_color2[0]*255),
+                                 int(self.avg_color2[1]*255),
+                                 int(self.avg_color2[2]*255))
+        self.buttons["avg_color2"].setStyleSheet(f"background-color:{hex};")
+        self.buttons["avg_color2"].clicked.connect(lambda: self.get_color(2))
         self.avg_checkbox = pqtw.QCheckBox("Plot mean trajectory?", self)
+        self.avg_checkbox2 = pqtw.QCheckBox("Per subject mean?", self)
+        self.alpha2_spinbox = pqtw.QDoubleSpinBox(self)
+        self.alpha2_spinbox.setRange(0, 1)
+        self.alpha2_spinbox.setSingleStep(0.05)
+        self.alpha2_spinbox.setValue(self.avg_alpha)
+        self.alpha3_spinbox = pqtw.QDoubleSpinBox(self)
+        self.alpha3_spinbox.setRange(0, 1)
+        self.alpha3_spinbox.setSingleStep(0.05)
+        self.alpha3_spinbox.setValue(self.avg_alpha2)
 
         if pp and pp.average:
             self.avg_checkbox.setChecked(True)
+        if pp and pp.avg_bool2:
+            self.avg_checkbox2.setChecked(True)
         self.ci_frame = pqtw.QFrame(self)
         self.ci_label = pqtw.QLabel("Confidence interval:", self.ci_frame)
         self.conf_spinbox = pqtw.QDoubleSpinBox(self.ci_frame)
@@ -683,6 +702,9 @@ class InsertTrajectoryFrame(pqtw.QFrame):
             self.conf_spinbox.setValue(0.95)
         else:
             self.conf_spinbox.setValue(pp.conf_int)
+        self.cr_for_ps_checkbox = pqtw.QCheckBox("Include confidence ribbons for subject avgs?", self)
+        if pp is not None and pp.ps_conf_ribbons:
+            self.cr_for_ps_checkbox.setChecked(True)
 
         t_groupBox = pqtw.QGroupBox("Transformation")
         t_radio1 = pqtw.QRadioButton("No transform")
@@ -772,9 +794,27 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         self.frame2.layout().addWidget(fd_button)
         self.frame2.layout().addWidget(self.buttons["cancel"])
 
-        self.frame3.layout().addWidget(self.avg_checkbox)
-        self.frame3.layout().addWidget(self.buttons["avg_color"])
+        colour_frame1 = pqtw.QFrame(self) 
+        colour_frame1.setLayout(pqtw.QHBoxLayout())
+        colour_frame1.layout().addWidget(self.avg_checkbox)
+        colour_frame1.layout().addWidget(self.avg_checkbox2)
+        self.frame3.layout().addWidget(colour_frame1)
+        colour_frame1 = pqtw.QFrame(self) 
+        colour_frame1.setLayout(pqtw.QHBoxLayout())
+        # colour_frame1.layout().addWidget(self.avg_checkbox)
+        colour_frame1.layout().addWidget(self.buttons["avg_color"])
+        colour_frame1.layout().addWidget(self.alpha2_spinbox)
+        self.frame3.layout().addWidget(colour_frame1)
+        # self.frame3.layout().addWidget(self.buttons["avg_color"])
+        colour_frame1 = pqtw.QFrame(self) 
+        colour_frame1.setLayout(pqtw.QHBoxLayout())
+        # colour_frame1.layout().addWidget(self.avg_checkbox2)
+        colour_frame1.layout().addWidget(self.buttons["avg_color2"])
+        colour_frame1.layout().addWidget(self.alpha3_spinbox)
+        self.frame3.layout().addWidget(colour_frame1)
+        # self.frame3.layout().addWidget(self.buttons["avg_color2"])
         self.frame3.layout().addWidget(self.ci_frame)
+        self.frame3.layout().addWidget(self.cr_for_ps_checkbox)
         self.frame3.layout().addWidget(t_groupBox)
         self.frame3.layout().addWidget(n_groupBox)
         self.frame3.layout().addWidget(qa_groupBox)
@@ -783,18 +823,21 @@ class InsertTrajectoryFrame(pqtw.QFrame):
     def select_cseq(self):
         pass
 
-    def get_color(self, average=False):
+    def get_color(self, average=0):
         color_d = pqtw.QColorDialog(self)
         c = color_d.getColor(parent=self).getRgbF()[:-1]
         hex = '#%02x%02x%02x' % (int(c[0]*255),
                                  int(c[1]*255),
                                  int(c[2]*255))
-        if not average:
+        if average == 0:
             self.color = c 
             self.buttons["color"].setStyleSheet(f"background-color:{hex};")
-        else:
+        elif average == 1:
             self.avg_color = c
             self.buttons["avg_color"].setStyleSheet(f"background-color:{hex};")
+        elif average == 2:
+            self.avg_color2 = c
+            self.buttons["avg_color2"].setStyleSheet(f"background-color:{hex};")
 
     # def open_browser(self):
         # self.fname = pqtw.QFileDialog().getOpenFileName(
@@ -813,8 +856,11 @@ class InsertTrajectoryFrame(pqtw.QFrame):
 
     def send_patch(self, export=False, clone=False):
         self.color = (*self.color, self.alpha_spinbox.value())
-        self.avg_color = (*self.avg_color, self.avg_alpha)
+        self.avg_color = (*self.avg_color, self.alpha2_spinbox.value())
+        self.avg_color2 = (*self.avg_color2, self.alpha3_spinbox.value())
         avg_bool = self.avg_checkbox.checkState()
+        avg_bool2 = self.avg_checkbox2.checkState()
+        cr_ps = self.cr_for_ps_checkbox.checkState()
 
         filter_types = []
         i = 0
@@ -873,10 +919,12 @@ class InsertTrajectoryFrame(pqtw.QFrame):
             new_pp = core.PlotParameters(label, subjects, self.color, 
                                          filter_types, 
                                          self.avg_color, avg_bool,
+                                         self.avg_color2, avg_bool2,
                                          transform,
                                          self.conf_spinbox.value(),
                                          normalisation,
-                                         self.custom_filter_frame.get_filters()
+                                         self.custom_filter_frame.get_filters(),
+                                         ps_conf_ribbons=cr_ps,
                                          )
             if self.pp is None or clone:
                 self.popup.parent().add_trajectory(new_pp)
@@ -891,16 +939,21 @@ class InsertTrajectoryFrame(pqtw.QFrame):
                     new_pp.plot_changed.append("col")
                 if self.pp.avg_color != new_pp.avg_color:
                     new_pp.plot_changed.append("avg col")
-                if not self.pp.average and new_pp.average:
-                    new_pp.plot_changed.append("average added")
-                elif self.pp.average and not new_pp.average:
-                    new_pp.plot_changed.append("average removed")
-                elif self.pp.average and self.pp.conf_int != new_pp.conf_int:
+                if self.pp.avg_color2 != new_pp.avg_color2:
+                    new_pp.plot_changed.append("avg col2")
+                if ((not self.pp.average and new_pp.average)
+                        or (not self.pp.avg_bool2 and new_pp.avg_bool2)
+                        or (self.pp.average and not new_pp.average)
+                        or ((self.pp.average or self.pp.avg_bool2) 
+                            and self.pp.conf_int != new_pp.conf_int)
+                        or (self.pp.avg_bool2 and not new_pp.avg_bool2)
+                        or (self.pp.ps_conf_ribbons != new_pp.ps_conf_ribbons)):
                     new_pp.plot_changed.append("average removed")
                     new_pp.plot_changed.append("average added")
                 if self.pp.label != new_pp.label:
                     new_pp.plot_changed.append("label")
                     new_pp.old_label = self.pp.label
+                new_pp.lines_for_split_averages = self.pp.lines_for_split_averages
                 self.popup.parent().edit_trajectory(new_pp, self.item)
                 if export:
                     print(new_pp.label)
@@ -910,6 +963,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
             qap = core.PlotParameters(label, subjects, self.color, 
                                       filter_types, 
                                       self.avg_color, avg_bool,
+                                      self.avg_color2,
                                       transform,
                                       self.conf_spinbox.value(),
                                       normalisation,
@@ -997,11 +1051,6 @@ class InsertTargetFrame(pqtw.QFrame):
         self.buttons["select"] = pqtw.QPushButton("Select input file", self)
         self.buttons["add"] = pqtw.QPushButton("Add Object", self)
         self.buttons["cancel"] = pqtw.QPushButton("Cancel", self)
-        # self.buttons["color"] = pqtw.QPushButton("Color", self)
-        # hex = '#%02x%02x%02x' % (int(self.color[0]*255),
-                                 # int(self.color[1]*255),
-                                 # int(self.color[2]*255))
-        # self.buttons["color"].setStyleSheet(f"background-color:{hex};")
         self.buttons["add"].clicked.connect(self.read_file)
         self.buttons["cancel"].clicked.connect(self.popup.close)
         self.buttons["add"].setEnabled(False)
@@ -1010,18 +1059,11 @@ class InsertTargetFrame(pqtw.QFrame):
         self.v_layout.addWidget(self.buttons["select"])
         self.v_layout.addWidget(self.buttons["add"])
         self.v_layout.addWidget(self.buttons["cancel"])
-        # self.g_layout.addWidget(self.label, 0, 0, 1, 4)
-        # self.g_layout.addWidget(self.inputx, 1, 0, 1, 1)
-        # self.g_layout.addWidget(self.inputy, 1, 1, 1, 1)
-        # self.g_layout.addWidget(self.inputz, 1, 2, 1, 1)
-        # self.g_layout.addWidget(self.buttons["add"], 1, 3, 1, 1)
-        # self.g_layout.addWidget(self.buttons["color"], 2, 0, 1, 4)
-        # self.g_layout.addWidget(self.buttons["cancel"], 3, 0, 1, 4)
 
     def get_input(self):
         dialog = pqtw.QFileDialog()
         dialog.setDirectory(self.parent().parent().parent().visualizer.object_base_path)
-        self.object_fname = dialog.getOpenFileName(self, "Selfect input file")[0]
+        self.object_fname = dialog.getOpenFileName(self, "Select input file")[0]
         if self.object_fname:
             self.buttons["add"].setEnabled(True)
         else:
