@@ -541,8 +541,10 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         # self.subject_text = subject_text
         self.subject_drop = subject_drop
         self.selection = [s_radio1, s_radio2, s_radio3]
-
-        if pp is None or len(pp.subjects) == len(self.popup.parent().visualizer.subjects.keys()):
+        if pp is None: 
+            subject_drop.setEnabled(True)
+            subject_group_select_button.setEnabled(False)
+        elif len(pp.subjects) == len(self.popup.parent().visualizer.subjects.keys()):
             subject_drop.setEnabled(False)
             subject_group_select_button.setEnabled(False)
         elif len(pp.subjects) == 1:
@@ -564,13 +566,13 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         s_radio1.clicked.connect(lambda: disable_fields(1))
         s_radio2.clicked.connect(lambda: disable_fields(2))
         s_radio3.clicked.connect(lambda: disable_fields(3))
-        if pp is None or len(pp.subjects) == len(self.popup.parent().visualizer.subjects.keys()):
-            s_radio1.setChecked(True)
-        elif len(pp.subjects) == 1:
+        if pp is None or len(pp.subjects) == 1:
+            if pp is not None and len(pp.subjects) == 1:
+                subject_drop.setCurrentText(pp.subjects[0])
             s_radio2.setChecked(True)
-            subject_drop.setCurrentText(pp.subjects[0])
+        elif len(pp.subjects) == len(self.popup.parent().visualizer.subjects.keys()):
+            s_radio1.setChecked(True)
         else:
-            # TODO redo how that one works
             s_radio3.setChecked(True)
 
         sgl.addWidget(s_radio1, 0, 0, 1, 4)
