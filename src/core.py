@@ -71,7 +71,6 @@ def average_trajectories(points, conf_int, resample=0):
     return mean_points, confidence
 
 
-
 def get_qa_trajs(quintiled_dframes, path, transform):
     lines_set = []
     for quintile in quintiled_dframes:
@@ -79,7 +78,7 @@ def get_qa_trajs(quintiled_dframes, path, transform):
         average_points, confidence = average_trajectories(lines, 0.95)
         lines_set.append(np.concatenate((np.empty((0, 3)), 
                                          average_points,
-                                         np.array([[np.nan, np.nan, np.nan]])
+                                         # np.array([[np.nan, np.nan, np.nan]])
                                          )))
         # lines_set.append(np.concatenate((np.empty((0, 3)), lines)))
     return lines_set, average_points.shape[0]
@@ -473,7 +472,8 @@ class Visualizer():
 
     def perform_analysis(self, qap: PlotParameters):
         n_bins = qap.n_bins
-        lines_all = [np.empty((0, 3)) for i in range(n_bins)]
+        lines_all = [None for i in range(n_bins)]
+        # lines_all = [np.empty((0, 3)) for i in range(n_bins)]
         for subject in qap.subjects:
             fname = self.base_path + subject + "/S001/trial_results.csv"
             base_csv = data_reader.get_results(fname)
@@ -515,14 +515,18 @@ class Visualizer():
             if qap.normalisation == 1:
                 normalise_qap_z(lines_set, 1)
             for i, line in enumerate(lines_set):
-                lines_all[i] = np.concatenate((lines_all[i], line))
-
+                if lines_all[i] is None:
+                    lines_all[i] = line.reshape(1, l_length, 3)
+                else:
+                    lines_all[i] = np.concatenate((lines_all[i], line.reshape(1, l_length, 3)))
 
         self._plot_id_counter += 1
         self.pp_set[self._plot_id_counter] = qap
         # color_set = color_sequences[qap.colour_key]
         color_set = color_sequences[self.color_seq]
         for i, lines in enumerate(lines_all):
+            lines = np.mean(lines, axis=0)
+            lines_all[i] = lines
             color = color_set[i % len(color_set)]
             color_text = (*color, 0.8)
             color = (*color, qap.qa_alpha)
@@ -571,7 +575,14 @@ class Visualizer():
 
     def change_avg_color(self, plot_id, color):
         for plot in self._viz.plots[plot_id][1:]:
-            plot.set_data(color=color)
+            print(str(type(plot)), "<class 'vispy.scene.visuals.Line'>")
+            print(str(type(plot)) == "<class 'vispy.scene.visuals.Line'>")
+            if str(type(plot)) == "<class 'vispy.scene.visuals.Line'>":
+                plot.set_data(color=color)
+            elif str(type(plot)) == "<class 'vispy.scene.visuals.Mesh'>":
+                v_colors = np.ones((1, 4)) * color
+                v_colors[:, 3] *= 0.4
+                plot.color = v_colors[0]
 
     def change_object_color(self, obj_id, color):
         self._viz.targets[obj_id].mesh.color = color

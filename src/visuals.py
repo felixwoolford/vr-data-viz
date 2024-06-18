@@ -185,26 +185,26 @@ class BaseVispy:
     def save(self, fname, height, dpi, width):
         # new_canvas = scene.SceneCanvas(size=(2000,2000), bgcolor="#FFFFFF")
         # new_canvas.central_widget.view = self.view
-        self.canvas.dpi=dpi
+        self.canvas.dpi = dpi
         size = self.canvas.size
         ratio = size[0] / size[1]
         hpx = int(height * dpi)
         if width is not None:
-            wpx = width
+            wpx = int(width * dpi)
         else:
             wpx = int(hpx * ratio)
         self.canvas.size = (wpx, hpx)
         # arr = self.view.camera.canvas.render(region=(0,0,400,400), alpha=False)
         # arr = self.canvas.render(size=(100,100), alpha=False)
-        arr = self.canvas.render(alpha=False)
+        # arr = self.canvas.render(alpha=False)
+        arr = self.canvas.render()
         # arr = new_canvas.render(alpha=False)
         # io.write_png("test2.png", arr)
         # f = open(fname, "wb")
         # f.close()
-        fname = "tst.png"
         io.write_png(fname, arr)
         self.canvas.size = size
-        self.canvas.dpi=100
+        self.canvas.dpi = 100
 
 
 class Viz(BaseVispy):
@@ -235,7 +235,8 @@ class Viz(BaseVispy):
         v_colors[:, 3] *= 0.4
         ribbon = scene.visuals.Mesh(points, 
                                     faces, 
-                                    vertex_colors=v_colors,
+                                    color=v_colors[0],
+                                    # vertex_colors=v_colors,
                                     shading=None)
         ribbon.order = 2
         # ribbon.set_gl_state("translucent", depth_test=False)

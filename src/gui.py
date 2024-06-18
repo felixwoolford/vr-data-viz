@@ -7,6 +7,8 @@ import PyQt5.QtGui as pqtg
 # from PyQt5.QtGui import QSurfaceFormat
 # import numpy as np
 
+from datetime import datetime
+
 import core
 import data_reader
 import large_strings
@@ -79,9 +81,54 @@ class GUIWindow(pqtw.QMainWindow):
         separator.setSeparator(True)
         # Adding the separator to the menu
         mb.mfile.addAction(separator)
-        mb.mfile.addAction("Save").triggered.connect(self.visualizer.save)
+        mb.mfile.addAction("Save").triggered.connect(self.save_browser)
         mb.mfile.addAction(separator)
         mb.mfile.addAction("Quit").triggered.connect(self.close)
+
+    def save_browser(self):
+
+        save_name = datetime.now().strftime("screenshot_%Y_%m_%d_%H_%M.png")
+
+        def save_confirm():
+            height = int(popup.height_field.text())
+            dpi = int(popup.dpi_field.text())
+            if not popup.width_checkbox.isChecked():
+                width = int(popup.width_field.text())
+            else:
+                width = None
+            self.visualizer.save(fname, height, dpi, width)
+            popup.close()
+
+        dialog = pqtw.QFileDialog()
+        fname = dialog.getSaveFileName(self, caption="Save as...", filter="*.png",
+                                       directory=self.visualizer.export_base_path+save_name)[0]
+        if fname:
+            popup = pqtw.QDialog(self)
+            popup.show()
+            popup.setLayout(pqtw.QGridLayout())
+            popup.height_field = pqtw.QLineEdit("4", parent=popup)
+            popup.height_field.setValidator(pqtg.QIntValidator(1, 12))
+            popup.dpi_field = pqtw.QLineEdit("300", parent=popup)
+            popup.dpi_field.setValidator(pqtg.QIntValidator(1, 900))
+            popup.width_field = pqtw.QLineEdit("4", parent=popup)
+            popup.width_field.setValidator(pqtg.QIntValidator(1, 12))
+            popup.width_checkbox = pqtw.QCheckBox(parent=popup)
+            confirm_button = pqtw.QPushButton("Save", popup)
+            cancel_button = pqtw.QPushButton("Cancel", popup)
+            cancel_button.clicked.connect(popup.close)
+            confirm_button.clicked.connect(save_confirm)
+            popup.layout().addWidget(pqtw.QLabel("Height (inches):"), 0, 0, 1, 1)
+            popup.layout().addWidget(pqtw.QLabel("DPI:"), 1, 0, 1, 1)
+            popup.layout().addWidget(pqtw.QLabel("Use current view width?"), 2, 0, 1, 1)
+            popup.layout().addWidget(pqtw.QLabel("Width (inches):"), 3, 0, 1, 1)
+
+            popup.layout().addWidget(popup.height_field, 0, 1, 1, 1)
+            popup.layout().addWidget(popup.dpi_field, 1, 1, 1, 1)
+            popup.layout().addWidget(popup.width_checkbox, 2, 1, 1, 1)
+            popup.layout().addWidget(popup.width_field, 3, 1, 1, 1)
+
+            popup.layout().addWidget(confirm_button, 4, 0, 1, 1)
+            popup.layout().addWidget(cancel_button, 4, 1, 1, 1)
 
     def open_browser(self, obj=0, path=None):
         dialog = pqtw.QFileDialog()
