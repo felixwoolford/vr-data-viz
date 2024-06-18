@@ -5,6 +5,7 @@ PyQt5
 numpy  
 pandas  
 scipy
+matplotlib
 
 With python and pip installed, navigate to the directory containing requitements.txt, open the terminal and type:  
 `pip install --user -r requirements.txt`  
