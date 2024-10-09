@@ -49,30 +49,27 @@ class BaseVispy:
 
     def render_background(self):
 
-        c = 5 
-        s = 10
+        # c = 5 
+        # s = 10
 
-        vertices, faces, outline = create_box(width=c, height=c, depth=c,
-                                              width_segments=s,
-                                              height_segments=s,
-                                              depth_segments=s)
-
+        # vertices, faces, outline = create_box(width=c, height=c, depth=c,
+                                              # width_segments=s,
+                                              # height_segments=s,
+                                              # depth_segments=s)
 
         # colors = vertices['color'] * np.array([1,0,0,1])
-        colors = vertices['color']
-        for color in colors:
-            color[0] = (color[1] + 3) / 4.8
-            color[1:3] = color[0]
-            
-        self.box = scene.visuals.Box(width=c, height=c, depth=c,
-                                     width_segments=s,
-                                     height_segments=s,
-                                     depth_segments=s,
-                                     # color=(0.9,0.9,0.9,1),
-                                     vertex_colors=colors,
-                                     edge_color=(0.5,0.5,0.5,1),
-                                     parent=self.view.scene)
-
+        # colors = vertices['color']
+        # for color in colors:
+            # color[0] = (color[1] + 3) / 4.8
+            # color[1:3] = color[0]
+        # self.box = scene.visuals.Box(width=c, height=c, depth=c,
+                                     # width_segments=s,
+                                     # height_segments=s,
+                                     # depth_segments=s,
+                                     # # color=(0.9,0.9,0.9,1),
+                                     # vertex_colors=colors,
+                                     # edge_color=(0.5,0.5,0.5,1),
+                                     # parent=self.view.scene)
 
         points = np.array([[0, 0, 0],
                            [0, 1, 0],
@@ -89,13 +86,13 @@ class BaseVispy:
 
                 # (len(points), 4))
         # v_colors[:, 3] = 0.1
-        # self.bg_xy = scene.visuals.Mesh(points, 
-                                    # faces, 
-                                    # vertex_colors=v_colors,
-                                    # shading=None,
+        self.bg_xy = scene.visuals.Mesh(points, 
+                                    faces, 
+                                    vertex_colors=v_colors,
+                                    shading=None,
                                         
-                                        # parent=self.view.scene,
-                                        # )
+                                        parent=self.view.scene,
+                                        )
         points = np.array([[0, 1, 0],
                            [0, 1, 1],
                            [1, 1, 0],
@@ -107,12 +104,12 @@ class BaseVispy:
                             [0.6, 0.6, 0.6, 0.3],
                             [0.9, 0.9, 0.9, 0.3],
                             ])
-        # self.bg_xz = scene.visuals.Mesh(points, 
-                                    # faces, 
-                                    # vertex_colors=v_colors,
-                                    # shading=None,
-                                        # parent=self.view.scene,
-                                        # )
+        self.bg_xz = scene.visuals.Mesh(points, 
+                                    faces, 
+                                    vertex_colors=v_colors,
+                                    shading=None,
+                                        parent=self.view.scene,
+                                        )
         points = np.array([[0, 0, 0],
                            [0, 1, 0],
                            [0, 0, 1],
@@ -123,19 +120,41 @@ class BaseVispy:
                             [0.9, 0.9, 0.9, 0.3],
                             [0.6, 0.6, 0.6, 0.3],
                             ])
-        # self.bg_yz = scene.visuals.Mesh(points, 
-                                    # faces, 
-                                    # vertex_colors=v_colors,
-                                    # shading=None,
-                                        # parent=self.view.scene,
-                                        # )
+        self.bg_yz = scene.visuals.Mesh(points, 
+                                    faces, 
+                                    vertex_colors=v_colors,
+                                    shading=None,
+                                        parent=self.view.scene,
+                                        )
         # self.bg_xy.attach(WireframeFilter(width=1))
-        # self.bg_xy.set_gl_state("translucent", depth_test=False)
+        self.bg_xy.set_gl_state("translucent", depth_test=False)
         # self.bg_xz.attach(WireframeFilter(width=1))
-        # self.bg_xz.set_gl_state("translucent", depth_test=False)
+        self.bg_xz.set_gl_state("translucent", depth_test=False)
         # self.bg_yz.attach(WireframeFilter(width=1))
 
-        # self.bg_yz.set_gl_state("translucent", depth_test=False)
+        self.bg_yz.set_gl_state("translucent", depth_test=False)
+        self.grid_points = []
+        for i in np.linspace(0, 1, 11):
+            self.grid_points.append([0, 0, i])
+            self.grid_points.append([0, 1, i])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+            self.grid_points.append([0, 1, i])
+            self.grid_points.append([1, 1, i])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+            self.grid_points.append([i, 1, 1])
+            self.grid_points.append([i, 1, 0])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+            self.grid_points.append([i, 0, 0])
+            self.grid_points.append([i, 1, 0])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+            self.grid_points.append([0, i, 0])
+            self.grid_points.append([0, i, 1])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+            self.grid_points.append([0, i, 0])
+            self.grid_points.append([1, i, 0])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+
+        self.gridlines = scene.visuals.Line(self.grid_points, color="#888888", parent=self.view.scene)
 
     def init_axes(self, **kwargs):
         self.grid = self.canvas.central_widget.add_grid(margin=10)
@@ -212,7 +231,17 @@ class Viz(BaseVispy):
         super().__init__(widget, axes=False)
         self.plots = {} 
         self.targets = {}
+        self.legend_hidden = False
+        self.extra_space = 0.5
         # self.qa_legend()
+
+    def key_pressed(self, event):
+        if event.text == "l":
+            self.hide_legend()
+        if event.text == "i":
+            self.adjust_extra_space(0.1)
+        if event.text == "o":
+            self.adjust_extra_space(-0.1)
 
     def add_plot(self, plot_id, points, color, width=2.0, order=1):
         traj = Line(points, color=color, width=width)
@@ -225,7 +254,7 @@ class Viz(BaseVispy):
         else:
             self.plots[plot_id] = [traj]
         traj.parent = self.view.scene
-        # self.recenter_camera()
+        self.recenter_camera()
 
     def add_confidence_ribbon(self, plot_id, points, color):
         points = np.array(list(zip(points[0], points[1]))).reshape(int(points[0].size*2/3), 3)
@@ -288,6 +317,9 @@ class Viz(BaseVispy):
             absmins = np.min((absmins, pos), axis=0)
             absmaxs = np.max((absmaxs, pos), axis=0)
 
+        absmins -= self.extra_space
+        absmaxs += self.extra_space
+
         center = (absmins + absmaxs) / 2
         # width = np.max(maxs - mins)
 
@@ -308,7 +340,7 @@ class Viz(BaseVispy):
                             [0.9, 0.9, 0.9, 0.3],
                             [0.6, 0.6, 0.6, 0.3],
                              ])
-        # self.bg_xy.set_data(points, faces, vertex_colors=v_colors)
+        self.bg_xy.set_data(points, faces, vertex_colors=v_colors)
         points = np.array([[absmins[0], absmaxs[1], absmins[2]],
                            [absmins[0], absmaxs[1], absmaxs[2]],
                            [absmaxs[0], absmaxs[1], absmins[2]],
@@ -320,7 +352,7 @@ class Viz(BaseVispy):
                             [0.6, 0.6, 0.6, 0.3],
                             [0.9, 0.9, 0.9, 0.3],
                             ])
-        # self.bg_xz.set_data(points, faces, vertex_colors=v_colors)
+        self.bg_xz.set_data(points, faces, vertex_colors=v_colors)
         points = np.array([[absmins[0], absmins[1], absmins[2]],
                            [absmins[0], absmaxs[1], absmins[2]],
                            [absmins[0], absmins[1], absmaxs[2]],
@@ -331,12 +363,37 @@ class Viz(BaseVispy):
                             [0.9, 0.9, 0.9, 0.3],
                             [0.6, 0.6, 0.6, 0.3],
                             ])
-        # self.bg_yz.set_data(points, faces, vertex_colors=v_colors)
+        self.bg_yz.set_data(points, faces, vertex_colors=v_colors)
         # points = np.array([[0, 0, 0],
                            # [0, 1, 0],
                            # [0, 0, 1],
                            # [0, 1, 1],
                            # ])
+
+        self.grid_points = []
+        for i in np.linspace(absmins[0], absmaxs[0], 11):
+            self.grid_points.append([i, absmaxs[1], absmaxs[2]])
+            self.grid_points.append([i, absmaxs[1], absmins[2]])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+            self.grid_points.append([i, absmins[1], absmins[2]])
+            self.grid_points.append([i, absmaxs[1], absmins[2]])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+        for i in np.linspace(absmins[1], absmaxs[1], 11):
+            self.grid_points.append([absmins[0], i, absmins[2]])
+            self.grid_points.append([absmins[0], i, absmaxs[2]])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+            self.grid_points.append([absmins[0], i, absmins[2]])
+            self.grid_points.append([absmaxs[0], i, absmins[2]])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+        for i in np.linspace(absmins[2], absmaxs[2], 11):
+            self.grid_points.append([absmins[0], absmins[1], i])
+            self.grid_points.append([absmins[0], absmaxs[1], i])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+            self.grid_points.append([absmins[0], absmaxs[1], i])
+            self.grid_points.append([absmaxs[0], absmaxs[1], i])
+            self.grid_points.append([np.nan, np.nan, np.nan])
+
+        self.gridlines.set_data(pos=self.grid_points)
 
     def qa_legend(self, label, color, i, plot_id):
         text = f'{label} Bin {i+1}'
@@ -364,4 +421,22 @@ class Viz(BaseVispy):
         target.transform = STTransform(translate=[x, y, z])
         target.parent = self.view.scene
         self.targets[target_id] = target
+        self.recenter_camera()
+
+    def hide_legend(self):
+        if not self.legend_hidden:
+            self.legend_hidden = True
+            for plot in self.plots.values():
+                for feature in plot:
+                    if type(feature) is Text:
+                        feature.parent = None
+        else:
+            self.legend_hidden = False
+            for plot in self.plots.values():
+                for feature in plot:
+                    if type(feature) is Text:
+                        feature.parent = self.canvas.scene
+
+    def adjust_extra_space(self, amount):
+        self.extra_space += amount
         self.recenter_camera()

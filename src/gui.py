@@ -54,6 +54,7 @@ class GUIWindow(pqtw.QMainWindow):
     def init_menubar(self):
         mb = self.menuBar()
         mb.mfile = mb.addMenu("File")
+        mb.mdisplay = mb.addMenu("Display")
         mb.mhelp = mb.addMenu("Help")
         data_action = mb.mfile.addAction("Base data directory...")
         data_action.triggered.connect(lambda: self.open_browser(3))
@@ -73,7 +74,7 @@ class GUIWindow(pqtw.QMainWindow):
         separator.setSeparator(True)
         # Adding the separator to the menu
         mb.mfile.addAction(separator)
-        pp_dialog_action = mb.mfile.addAction("Select preprocess type by example...")
+        pp_dialog_action = mb.mfile.addAction("Select postprocess type by example...")
         pp_dialog_action.triggered.connect(self.keyword_browser)
         log_dialog_action = mb.mfile.addAction("Select log type by example...")
         log_dialog_action.triggered.connect(lambda: self.keyword_browser(True))
@@ -82,9 +83,19 @@ class GUIWindow(pqtw.QMainWindow):
         separator.setSeparator(True)
         # Adding the separator to the menu
         mb.mfile.addAction(separator)
-        mb.mfile.addAction("Save").triggered.connect(self.save_browser)
+        mb.mfile.addAction("Save image").triggered.connect(self.save_browser)
+        separator = pqtw.QAction(self)
+        separator.setSeparator(True)
+        # Adding the separator to the menu
         mb.mfile.addAction(separator)
         mb.mfile.addAction("Quit").triggered.connect(self.close)
+
+        increase = mb.mdisplay.addAction("Increase room size (shortcut key i)")
+        increase.triggered.connect(lambda: self.visualizer._viz.adjust_extra_space(0.1))
+        decrease = mb.mdisplay.addAction("Decrease room size (shortcut key o)")
+        decrease.triggered.connect(lambda: self.visualizer._viz.adjust_extra_space(-0.1))
+        toggle = mb.mdisplay.addAction("Toggle legend (shortcut key l)")
+        toggle.triggered.connect(lambda: self.visualizer._viz.hide_legend())
 
     def save_browser(self):
 
@@ -376,6 +387,7 @@ class ControlFrame(pqtw.QFrame):
         popup.setLayout(pqtw.QHBoxLayout())
         del_button = pqtw.QPushButton("Delete", self)
         col_button = pqtw.QPushButton("Colour", self)
+
         change_button = pqtw.QPushButton("Commit Changes", self)
         if type(self.change_color) is str:
             color = self.change_color
@@ -448,9 +460,9 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         self.avg_color = pp.avg_color[:3] if pp else (1., 1., 1.)
         self.avg_color2 = pp.avg_color2[:3] if pp else (0., 0., 0.)
         # TODO variabel
-        self.alpha = pp.color[3] if pp else 0.3
-        self.avg_alpha = pp.avg_color[3] if pp else 0.9
-        self.avg_alpha2 = pp.avg_color2[3] if pp else 0.8
+        self.alpha = pp.color[3] if pp else 0.2
+        self.avg_alpha = pp.avg_color[3] if pp else 0.8
+        self.avg_alpha2 = pp.avg_color2[3] if pp else 0.6
 
         # self.g_layout = pqtw.QGridLayout()
         self.h_layout = pqtw.QHBoxLayout()
@@ -486,6 +498,18 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         # self.buttons["add"].setEnabled(False)
         self.buttons["cancel"] = pqtw.QPushButton("Cancel", self)
         self.buttons["color"] = pqtw.QPushButton("Colour", self)
+        self.hide_t_checkbox = pqtw.QCheckBox("Hide individual trajectories?", self)
+        if self.alpha == 0:
+            self.hide_t_checkbox.setChecked(True)
+
+        def state_changed(_):
+            if self.hide_t_checkbox.isChecked():
+                self.alpha = 0
+                self.alpha_spinbox.setValue(self.alpha)
+            else:
+                self.alpha = 0.2
+                self.alpha_spinbox.setValue(self.alpha)
+        self.hide_t_checkbox.stateChanged.connect(state_changed)
         hex = '#%02x%02x%02x' % (int(self.color[0]*255),
                                  int(self.color[1]*255),
                                  int(self.color[2]*255))
@@ -785,6 +809,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
         colour_frame1.layout().addWidget(self.buttons["color"])
         colour_frame1.layout().addWidget(self.alpha_spinbox)
         self.frame1.layout().addWidget(colour_frame1)
+        self.frame1.layout().addWidget(self.hide_t_checkbox)
         self.frame1.layout().addWidget(self.buttons["add"])
         if pp is not None:
             self.frame1.layout().addWidget(self.buttons["clone"])
@@ -966,7 +991,7 @@ class InsertTrajectoryFrame(pqtw.QFrame):
             qap = core.PlotParameters(label, subjects, self.color, 
                                       filter_types, 
                                       self.avg_color, avg_bool,
-                                      self.avg_color2,
+                                      self.avg_color2, avg_bool2,
                                       transform,
                                       self.conf_spinbox.value(),
                                       normalisation,

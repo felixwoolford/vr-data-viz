@@ -155,7 +155,20 @@ def normalise_z(lines, type):
             else:
                 mask[i] = current_start
     else:
-        mask = lines[0, 2]
+        start_point = True
+        current_start = 0
+        sum = 0
+        n = 0
+        for i, p in enumerate(lines[:, 2]):
+            if start_point:
+                n += 1
+                current_start = p
+                start_point = False
+                sum += p
+            if np.isnan(p):
+                start_point = True
+        # mask = lines[0, 2]
+        mask = sum / n
     lines[:, 2] -= mask
 
 
@@ -250,7 +263,7 @@ class Visualizer():
         self._target_id_counter = 0
         self.pp_set = {}
         self.data_for_export_set = {}
-        self.data_for_export_set_basic = {}
+        # self.data_for_export_set_basic = {}
         self.cseqs = list(color_sequences.keys())
         self.color_seq = "Set2"
 
@@ -356,15 +369,15 @@ class Visualizer():
         if pp.normalisation == 2:
             normalise_z(lines_all, 2)
 
-        self.data_for_export_set_basic[pp.label] = {"label": pp.label,
-                                                    "type": "subject trajectory",
-                                                    "subjects": pp.subjects,
-                                                    "filters": pp.filter_types,
-                                                    "extra_filters": pp.custom_filter_set,
-                                                    "filtered_trials": filter_dict,
-                                                    "transformations": pp.transform,
-                                                    "normalisation": pp.normalisation
-                                                    }
+        self.data_for_export_set[pp.label] = {"label": pp.label,
+                                              "type": "subject trajectory",
+                                              "subjects": pp.subjects,
+                                              "filters": pp.filter_types,
+                                              "extra_filters": pp.custom_filter_set,
+                                              "filtered_trials": filter_dict,
+                                              "transformations": pp.transform,
+                                              "normalisation": pp.normalisation
+                                              }
 
         self._plot_id_counter += 1
         self._viz.add_plot(self._plot_id_counter, lines_all, pp.color, order=3)
@@ -395,10 +408,10 @@ class Visualizer():
         return points_all, confs
 
     def export_data(self, label):
-        try:
-            data_reader.export_qa_data(self.data_for_export_set_basic[label], self.export_base_path)
-        except KeyError:
-            print("No basic data for", label)
+        # try:
+            # data_reader.export_qa_data(self.data_for_export_set_basic[label], self.export_base_path)
+        # except KeyError:
+            # print("No basic data for", label)
         try:
             data_reader.export_qa_data(self.data_for_export_set[label], self.export_base_path)
         except KeyError:
@@ -463,6 +476,8 @@ class Visualizer():
     def add_average(self, pp, plot_id, lines_all, lines_for_split_averages):
         if pp.avg_bool2:
             lines_all, ps_conf = self.get_per_subject_avg(lines_for_split_averages, pp.conf_int)
+            if pp.normalisation == 2:
+                normalise_z(lines_all, 2)
             self._viz.add_plot(self._plot_id_counter, lines_all, pp.avg_color2, order=2,
                                width=10)
             if pp.ps_conf_ribbons:
@@ -491,14 +506,14 @@ class Visualizer():
     def remove_plot(self, plot_id):
         try:
             label = self.pp_set[plot_id].label
-            del self.data_for_export_set_basic[label]
+            del self.data_for_export_set[label]
         except AttributeError:
             pass
         except KeyError:
             pass
         try:
             old_label = self.pp_set[plot_id].old_label
-            del self.data_for_export_set_basic[old_label]
+            del self.data_for_export_set[old_label]
         except AttributeError:
             pass
         except KeyError:
